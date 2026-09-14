@@ -1,0 +1,23 @@
+{
+  "name": "@repoagent/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4",
+    "simple-git": "^3",
+    "uuid": "^9",
+    "ws": "^8"
+  },
+  "devDependencies": {
+    "@types/express": "^4",
+    "@types/node": "^22",
+    "@types/ws": "^8",
+    "typescript": "^5",
+    "vitest": "^3"
+  }
+}
