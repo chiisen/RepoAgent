@@ -27,6 +27,16 @@ function configPath(): string {
   return path.join(__dirname, '..', '..', '..', 'data', 'config.json');
 }
 
+/** 去掉尾端多餘分隔符；磁碟根（如 D:\）保留。 */
+export function normalizeRootDir(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+  const resolved = path.resolve(trimmed);
+  const { root } = path.parse(resolved);
+  if (resolved === root) return resolved;
+  return resolved.replace(/[\\/]+$/, '');
+}
+
 export function loadConfig(): ConfigStore {
   const p = configPath();
   try {

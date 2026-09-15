@@ -67,7 +67,8 @@
     const SCAN_FETCH_MS = 90_000;
     async function loadConfig() {
       const c = await api('/api/config');
-      if (c.rootDir && !$('rootDir').value) $('rootDir').value = c.rootDir;
+      if (c.rootDir && !$('rootDir').value) $('rootDir').value = normalizeRootDirInput(c.rootDir);
+      else applyRootDirNorm();
       return c;
     }
     async function loadRepos() {
@@ -108,9 +109,19 @@
       $('scanLabel').textContent = label || (on ? '掃描中…' : '掃描');
       $('scanMask').classList.toggle('show', on);
     }
+    function normalizeRootDirInput(s) {
+      const t = s.trim();
+      if (/^[a-zA-Z]:[\\/]$/.test(t)) return t[0] + ':\\';
+      return t.replace(/[\\/]+$/, '');
+    }
+    function applyRootDirNorm() {
+      const n = normalizeRootDirInput($('rootDir').value);
+      if (n !== $('rootDir').value) $('rootDir').value = n;
+    }
     async function scanNow() {
       if (scanning) return;
-      const rootDir = $('rootDir').value.trim();
+      const rootDir = normalizeRootDirInput($('rootDir').value);
+      $('rootDir').value = rootDir;
       if (!rootDir) throw new Error('請先貼上要掃的目錄');
       $('grid').innerHTML = '';
       $('repoCount').textContent = '0 個專案';
@@ -143,6 +154,9 @@
     $('rootDir').addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') { ev.preventDefault(); scanNow().catch((e) => toast(String(e.message || e))); }
     });
+    $('rootDir').addEventListener('blur', applyRootDirNorm);
+    $('rootDir').addEventListener('paste', () => setTimeout(applyRootDirNorm, 0));
+    $('rootDir').addEventListener('change', applyRootDirNorm);
     $('rootDir').addEventListener('input', () => {
       $('grid').innerHTML = '';
       $('repoCount').textContent = '0 個專案';

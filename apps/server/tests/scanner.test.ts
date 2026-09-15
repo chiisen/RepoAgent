@@ -22,6 +22,19 @@ beforeEach(() => {
 });
 afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 
+describe('normalizeRootDir', () => {
+  it('strips trailing separators but keeps drive root', async () => {
+    const { normalizeRootDir } = await import('../src/config.js');
+    if (process.platform === 'win32') {
+      expect(normalizeRootDir('D:\\github\\')).toBe('D:\\github');
+      expect(normalizeRootDir('D:\\github/')).toBe('D:\\github');
+      expect(normalizeRootDir('D:\\')).toMatch(/^D:\\$/i);
+    } else {
+      expect(normalizeRootDir('/tmp/foo/')).toBe('/tmp/foo');
+    }
+  });
+});
+
 describe('scanRoot', () => {
   it('finds only git repos one level deep with correct dirty flags', async () => {
     const db = openDb(':memory:');

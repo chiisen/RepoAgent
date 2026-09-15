@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { configStore, saveConfig } from '../config.js';
+import { configStore, saveConfig, normalizeRootDir } from '../config.js';
 
 export function createConfigRouter() {
   const router = Router();
@@ -20,10 +20,11 @@ export function createConfigRouter() {
 
     if (rootDir !== undefined) {
       try {
-        path.resolve(rootDir);
-        if (!fs.existsSync(rootDir)) {
+        const normalized = normalizeRootDir(rootDir);
+        if (!normalized || !fs.existsSync(normalized)) {
           return res.status(400).json({ error: `rootDir not found: ${rootDir}` });
         }
+        req.body.rootDir = normalized;
       } catch {
         return res.status(400).json({ error: `invalid rootDir: ${rootDir}` });
       }
@@ -35,7 +36,7 @@ export function createConfigRouter() {
       }
     }
 
-    if (rootDir !== undefined) configStore.rootDir = rootDir;
+    if (rootDir !== undefined) configStore.rootDir = req.body.rootDir as string;
     if (piPath !== undefined) configStore.piPath = piPath;
     if (promptTemplate !== undefined) configStore.promptTemplate = promptTemplate;
     if (timeout !== undefined) configStore.timeout = timeout;

@@ -1,9 +1,10 @@
 import { readdirSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
 import type { Repo } from './db.js';
+import { normalizeRootDir } from './config.js';
 
 export type ScanSummary = { scanId: number; rootDir: string; total: number; okCount: number; failCount: number };
 
@@ -82,7 +83,7 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
 }
 
 export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanSummary> {
-  const root = resolve(rootDir);
+  const root = normalizeRootDir(rootDir);
   if (!existsSync(root)) throw new Error(`rootDir not found: ${root}`);
   setScanProgress({ running: true, total: 0, done: 0, current: '列目錄…' });
   try {

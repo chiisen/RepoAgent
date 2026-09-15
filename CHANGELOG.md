@@ -17,6 +17,8 @@
 
 ### 修正
 
+- `rootDir` 尾端多餘 `\` `/` 會正規化（`D:\github\` → `D:\github`）；輸入框在失焦／貼上／掃描時同步顯示。
+
 - 修正 `GET /` 在 `apps/web/dist` 尚未建置時落入 Express 預設 404（並觸發 Chrome `default-src 'none'` CSP）；改為優先 `web/dist`、否則提供 `web/public` fallback 儀表板。
 - 補 `favicon.svg` 並讓 `GET /favicon.ico` 回傳該圖，避免瀏覽器預設請求變成 404。
 - 掃描改用 `git status --porcelain`、單 repo 12s 逾時、並行 6，避免數百個專案卡在「掃描中」；前端 90s 未回應會解除按鈕。
