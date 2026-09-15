@@ -57,6 +57,16 @@ describe('GET /api/repos', () => {
     expect(body.total).toBe(0);
   });
 });
+describe('GET /api/scan/progress', () => {
+  it('returns done/total fields', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/scan/progress`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { running: boolean; total: number; done: number };
+    expect(body).toHaveProperty('running');
+    expect(body).toHaveProperty('total');
+    expect(body).toHaveProperty('done');
+  });
+});
 describe('POST /api/scan', () => {
   it('triggers scan and updates count', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/scan`, { 

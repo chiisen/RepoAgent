@@ -1,4 +1,5 @@
 import express from 'express';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
@@ -23,12 +24,32 @@ app.use('/api/config', createConfigRouter());
 
 app.use('/api', createJobsRouter());
 
-// Serve static frontend files
-const publicDir = join(__dirname, '..', '..', 'web', 'dist');
-app.use(express.static(publicDir));
+function findIndexHtml(): string | undefined {
+  const candidates = [
+    join(__dirname, '..', '..', 'web', 'dist', 'index.html'),
+    join(__dirname, '..', '..', 'web', 'public', 'index.html'),
+    join(process.cwd(), 'apps', 'web', 'dist', 'index.html'),
+    join(process.cwd(), 'apps', 'web', 'public', 'index.html'),
+    join(process.cwd(), '..', 'web', 'public', 'index.html'),
+  ];
+  return candidates.find((p) => existsSync(p));
+}
+
+const indexHtml = findIndexHtml();
+if (indexHtml) {
+  const webDir = dirname(indexHtml);
+  const faviconSvg = join(webDir, 'favicon.svg');
+  app.get('/favicon.ico', (_req, res) => {
+    if (existsSync(faviconSvg)) return res.type('image/svg+xml').sendFile(faviconSvg);
+    res.status(204).end();
+  });
+  app.use(express.static(webDir));
+  app.get('/', (_req, res) => res.sendFile(indexHtml));
+}
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
   console.log(`RepoAgent server listening on http://localhost:${PORT}`);
+  console.log(indexHtml ? `UI: ${indexHtml}` : 'UI: no index.html (GET / will 404 until web/public or web/dist exists)');
 });

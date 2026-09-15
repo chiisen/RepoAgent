@@ -41,4 +41,22 @@ describe('scanRoot', () => {
     expect(row.lastCommitHash).toHaveLength(40);
     expect(row.lastCommitMsg).toBe('init');
   });
+  it('drops repos from a previous rootDir on the next scan', async () => {
+    const db = openDb(':memory:');
+    await scanRoot(db, root);
+    const other = mkdtempSync(join(tmpdir(), 'repoagent-scan-b-'));
+    const p = join(other, 'only-b');
+    mkdirSync(p, { recursive: true });
+    git(p, 'init'); git(p, 'config', 'user.email', 't@t.t'); git(p, 'config', 'user.name', 't');
+    writeFileSync(join(p, 'f.txt'), 'b');
+    git(p, 'add', '.'); git(p, 'commit', '-m', 'b');
+    try {
+      await scanRoot(db, other);
+      const rows = db.prepare('SELECT name, path FROM repos').all() as { name: string; path: string }[];
+      expect(rows).toHaveLength(1);
+      expect(rows[0].name).toBe('only-b');
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
 });

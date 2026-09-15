@@ -1,9 +1,13 @@
 import { Router, Request, Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
-import { scanRoot } from '../scanner.js';
+import { getScanProgress, scanRoot } from '../scanner.js';
 
 export function createScanRouter(db: DatabaseSync): Router {
   const router = Router();
+
+  router.get('/scan/progress', (_req: Request, res: Response) => {
+    res.json(getScanProgress());
+  });
 
   router.post('/scan', async (req: Request, res: Response) => {
     const { rootDir } = req.body;
