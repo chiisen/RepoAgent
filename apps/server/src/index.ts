@@ -19,6 +19,8 @@ app.use('/api', createJobsRouter());
 const publicDir = join(__dirname, '..', '..', 'web', 'dist');
 app.use(express.static(publicDir));
 
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
 app.listen(PORT, () => {
   console.log(`RepoAgent server listening on http://localhost:${PORT}`);
 });
