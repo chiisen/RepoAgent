@@ -61,10 +61,11 @@
     async function api(path, opt) {
       const res = await fetch(path, opt);
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || res.statusText);
+      if (!res.ok) throw new Error(body.error || body.message || res.statusText);
       return body;
     }
     const SCAN_FETCH_MS = 90_000;
+    const PULL_FETCH_MS = 30_000;
     async function loadConfig() {
       const c = await api('/api/config');
       if (c.rootDir && !$('rootDir').value) $('rootDir').value = normalizeRootDirInput(c.rootDir);
@@ -79,14 +80,18 @@
         const [cls, label] = lamp(r);
         const msg = (r.lastCommitMsg || '').slice(0, 72);
         const t = r.lastCommitTime ? r.lastCommitTime.slice(0, 16).replace('T', ' ') : '';
+        const pullAt = r.lastPullAt ? r.lastPullAt.slice(0, 16).replace('T', ' ') : '';
+        const pullMsg = (r.lastPullMsg || '').slice(0, 80);
         return `<article class="card" data-id="${r.id}">
           <div class="title"><span>${r.name}</span><span class="${cls}">${label}</span></div>
           <div class="meta">分支 ${r.branch || '—'}<br>
             狀態 ${r.isDirty ? '變更 ' + r.dirtyCount : '乾淨'}<br>
             最後 commit ${t} ${msg}<br>
-            上次掃描 ${r.lastScannedAt || '—'}</div>
+            上次掃描 ${r.lastScannedAt || '—'}<br>
+            最後更新 ${pullAt || '—'} ${pullMsg || ''}</div>
           <div class="actions">
             <button data-act="detail">詳情</button>
+            <button data-act="pull">更新</button>
             <button data-act="opt">用 pi 優化</button>
           </div>
         </article>`;
@@ -176,6 +181,26 @@
             (d.statusShort.join('\n') || '(乾淨)') + '</pre><h3>log -5</h3><pre>' +
             d.recentCommits.map((c) => c.hash.slice(0, 7) + ' ' + c.date + ' ' + c.message).join('\n') + '</pre>';
           $('closeD').onclick = () => $('drawer').classList.remove('open');
+        } else if (btn.dataset.act === 'pull') {
+          btn.disabled = true;
+          btn.textContent = '更新中';
+          const ac = new AbortController();
+          const timer = setTimeout(() => ac.abort(), PULL_FETCH_MS);
+          try {
+            const r = await api('/api/repos/' + id + '/pull', { method: 'POST', signal: ac.signal });
+            toast((r.message || '已更新').slice(0, 200));
+          } catch (e) {
+            await loadRepos().catch(() => {});
+            if (e && (e.name === 'AbortError' || String(e).includes('abort'))) {
+              throw new Error('更新逾時，遠端可能在等 Git 憑證');
+            }
+            throw e;
+          } finally {
+            await loadRepos().catch(() => {});
+            clearTimeout(timer);
+            btn.disabled = false;
+            btn.textContent = '更新';
+          }
         } else {
           const r = await api('/api/repos/' + id + '/optimize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
           toast('已排程 job ' + r.job.id);

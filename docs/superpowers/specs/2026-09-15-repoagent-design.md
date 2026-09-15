@@ -59,7 +59,8 @@ V1 目標：
   2. 狀態 `乾淨` 或 `M x A y D z`（由 `status --porcelain` 計數，V1 顯示總數與前綴統計即可）
   3. 最後 commit `YYYY-MM-DD HH:mm + 前 72 字訊息`
   4. 上次掃描 `relative time`
-- 卡尾動作：`詳情`、`用 pi 優化`。job 執行中時按鈕 disabled 並顯示進度條。
+- 卡尾動作：`詳情`、`更新`（`git pull --ff-only`）、`用 pi 優化`。job／pull 執行中時按鈕 disabled。
+- 更新：工作區 dirty 則跳過（409）；無 upstream 則失敗；成功後只重掃該 repo。單 repo `git pull` 硬逾時 25 秒並殺掉行程（禁止等憑證視窗）；前端 30 秒未回應解除按鈕。不做全部 pull、不做 stash／自動 merge。
 
 ### 3.2 詳情抽屜
 

@@ -7,6 +7,10 @@
 
 ### 新增
 
+- 卡片顯示最後按「更新」的時間與 pull 回傳的最後一行（`lastPullAt` / `lastPullMsg`）。
+
+- 卡片「更新」：對單一 repo 執行 `git pull --ff-only`（dirty 跳過、無 upstream 失敗、成功後重掃該卡，log 寫入 `data/jobs/pull-*.log`）。
+
 - 新增 HTTP 煙霧測試（`GET /`、`favicon.ico`、`/api/health`、`scan/progress` 契約）與 Playwright 總覽頁（本頁無例外）。
 - 新增 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md`（三者必須內容同步，由 vitest `agent-docs-sync` 把關）。
 
@@ -16,6 +20,10 @@
 - 新增設定模組 `configStore` 與 `GET/PUT /api/config`（rootDir/piPath/promptTemplate/timeout，持久化至 `data/config.json`）。
 
 ### 修正
+
+- `git pull` 改 `execFile` 硬逾時 25 秒並禁止互動憑證，避免「更新中」卡死；前端 30 秒中止請求。
+
+- 正式啟動改用 `data/repoagent.db`（不再 `:memory:`），避免重開 server 後卡片 id 失效、`POST /pull` 404。
 
 - `rootDir` 尾端多餘 `\` `/` 會正規化（`D:\github\` → `D:\github`）；輸入框在失焦／貼上／掃描時同步顯示。
 

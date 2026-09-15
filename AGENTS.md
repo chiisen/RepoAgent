@@ -28,6 +28,7 @@ npx tsx src/index.ts
 - 無 `apps/web/dist/index.html` 時送 `apps/web/public`，`GET /` 不得落到 Express 預設 404。
 - `data/config.json`、`data/*.db*` 不納版控。
 - 路徑用 `path.resolve`／spawn args 陣列，支援 Windows 中文與空白路徑。
+- 卡片「更新」僅 `git pull --ff-only`：dirty 跳過、無 upstream 失敗、45 秒逾時；不要做全部 pull 或自動 stash/merge。
 
 ## 測試
 

@@ -1,5 +1,5 @@
 import { readdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
@@ -41,6 +41,36 @@ function gitClient(repoPath: string) {
       },
     },
   });
+}
+
+export async function refreshRepo(db: DatabaseSync, repoPath: string, lastError = ''): Promise<void> {
+  const now = new Date().toISOString();
+  const name = basename(repoPath);
+  try {
+    const info = await inspectRepo(repoPath);
+    const id = await repoId(db, repoPath);
+    upsertRepo(db, {
+      id,
+      name,
+      path: repoPath,
+      branch: info.branch,
+      isDirty: info.isDirty,
+      dirtyCount: info.dirtyCount,
+      lastCommitHash: info.lastCommitHash,
+      lastCommitTime: info.lastCommitTime,
+      lastCommitMsg: info.lastCommitMsg,
+      lastScannedAt: now,
+      lastError,
+    });
+  } catch (e) {
+    const id = await repoId(db, repoPath);
+    db.prepare('UPDATE repos SET name=?, lastScannedAt=?, lastError=? WHERE id=?').run(
+      name,
+      now,
+      lastError || String(e).slice(0, 300),
+      id,
+    );
+  }
 }
 
 async function inspectRepo(repoPath: string): Promise<{

@@ -1,7 +1,10 @@
 import { Router, Request, Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
+import { randomUUID } from 'node:crypto';
 import { createJob, startJob, DEFAULT_PROMPT_TEMPLATE } from '../optimizer.js';
+import { lastOutputLine, pullFastForward } from '../pull.js';
+import { refreshRepo } from '../scanner.js';
 
 export function createReposRouter(db: DatabaseSync): Router {
   const router = Router();
@@ -68,6 +71,26 @@ export function createReposRouter(db: DatabaseSync): Router {
     const job = createJob(repo.path, prompt);
     startJob(job, db);
     res.status(202).json({ job });
+  });
+
+  router.post('/repos/:id/pull', async (req: Request, res: Response) => {
+    const repo = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id) as any;
+    if (!repo) return res.status(404).json({ error: 'repo not found' });
+    try {
+      const result = await pullFastForward(repo.path, randomUUID());
+      await refreshRepo(db, repo.path, result.ok ? '' : result.message);
+      const pullMsg = lastOutputLine(result.message || result.output);
+      db.prepare('UPDATE repos SET lastPullAt=?, lastPullMsg=? WHERE id=?').run(
+        new Date().toISOString(),
+        pullMsg,
+        req.params.id,
+      );
+      const updated = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id);
+      const status = result.ok ? 200 : result.code === 'dirty' ? 409 : 400;
+      res.status(status).json({ ...result, repo: updated });
+    } catch (e) {
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
   });
 
   return router;
