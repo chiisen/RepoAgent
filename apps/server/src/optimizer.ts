@@ -21,8 +21,22 @@ export interface JobRecord {
 
 const JOB_TIMEOUT_MS = 600_000; // 600 seconds default
 const KILL_GRACE_MS = 10_000; // SIGTERM 後等 10 秒再 SIGKILL（雙平台）
+
+// 規格 §4.3 預設 prompt 樣板（{repoPath}/{branch} 由呼叫方代入）
+export const DEFAULT_PROMPT_TEMPLATE =
+  '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}';
 const jobMap = new Map<string, JobRecord>();
 const childMap = new Map<string, ChildProcess>();
+// 逾時計時器獨立存放：job 物件需保持 JSON 可序列化（API 直接回傳），不可掛 Timeout
+const timeoutMap = new Map<string, ReturnType<typeof setTimeout>>();
+
+function clearJobTimeout(jobId: string): void {
+  const t = timeoutMap.get(jobId);
+  if (t) {
+    clearTimeout(t);
+    timeoutMap.delete(jobId);
+  }
+}
 
 // exported for testing
 export { jobMap, childMap, JOB_TIMEOUT_MS, KILL_GRACE_MS };
@@ -34,6 +48,8 @@ export function initOptimizer(io: Server, db: DatabaseSync): void {
   wsInstance = io;
   dbInstance = db;
   jobMap.clear();
+  for (const t of timeoutMap.values()) clearTimeout(t);
+  timeoutMap.clear();
   for (const child of childMap.values()) {
     try { child.kill('SIGKILL'); } catch { /* 已退出則忽略 */ }
   }
@@ -128,7 +144,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     });
 
     child.on('exit', (code) => {
-      clearTimeout((job as any).timeoutId);
+      clearJobTimeout(job.id);
       childMap.delete(job.id);
       job.exitCode = code;
       job.status = code === 0 ? 'done' : 'failed';
@@ -138,7 +154,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     });
 
     child.on('error', (err) => {
-      clearTimeout((job as any).timeoutId);
+      clearJobTimeout(job.id);
       childMap.delete(job.id);
       const e = err as NodeJS.ErrnoException;
       // ENOENT：pi 不存在（不在 PATH / 路徑錯誤），雙平台皆經此分支；
@@ -154,14 +170,15 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     });
 
     // Timeout watchdog：先 SIGTERM，10 秒不死才 SIGKILL
-    (job as any).timeoutId = setTimeout(() => {
+    timeoutMap.set(job.id, setTimeout(() => {
+      timeoutMap.delete(job.id);
       const c = childMap.get(job.id);
       if (c) terminate(c);
       job.status = 'failed';
       job.finishedAt = new Date().toISOString();
       wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
       done();
-    }, JOB_TIMEOUT_MS);
+    }, JOB_TIMEOUT_MS));
   });
 }
 
@@ -191,7 +208,7 @@ export function cancelJob(jobId: string): void {
     terminate(child);
     childMap.delete(jobId);
   }
-  clearTimeout((job as any).timeoutId);
+  clearJobTimeout(jobId);
   job.status = 'cancelled';
   job.finishedAt = new Date().toISOString();
   wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
