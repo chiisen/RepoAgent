@@ -23,7 +23,8 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
   const scanId = Number(r.lastInsertRowid);
   let total = 0, okCount = 0, failCount = 0;
   for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory() || SKIP_DIRS.has(entry.name)) continue;
+    // Windows 檔案系統大小寫不敏感，統一小寫比對黑名單（macOS 亦無害）
+    if (!entry.isDirectory() || SKIP_DIRS.has(entry.name.toLowerCase())) continue;
     const repoPath = join(root, entry.name);
     if (!existsSync(join(repoPath, '.git'))) continue;
     total++;

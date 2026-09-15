@@ -1,9 +1,14 @@
 import express from 'express';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { createReposRouter } from './routes/repos.js';
 import { createScanRouter } from './routes/scan.js';
 import { createJobsRouter } from './routes/jobs.js';
+
+// ESM 下無 __dirname，以 import.meta.url 推導（Windows/macOS 通用）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
