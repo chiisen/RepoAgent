@@ -12,6 +12,7 @@
     header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; background: #1c1c1c; }
     input, select, button { font-size: 14px; padding: 6px 10px; }
     #rootDir { min-width: 28rem; flex: 1; }
+    #repoCount { font-size: 14px; color: #ccc; white-space: nowrap; }
     #toast { position: fixed; right: 16px; bottom: 16px; background: #333; padding: 10px 14px; border-radius: 8px; display: none; max-width: 420px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 16px; }
     .card { background: #1c1c1c; border-radius: 10px; padding: 12px; border: 1px solid #333; }
@@ -37,6 +38,7 @@
     <strong>RepoAgent</strong>
     <input id="rootDir" type="text" placeholder="貼上要掃的目錄，例如 D:\github\chiisen" spellcheck="false">
     <button id="btnScan">掃描</button>
+    <span id="repoCount">0 個專案</span>
     <input id="q" placeholder="搜尋名稱">
     <select id="filter">
       <option value="all">全部</option>
@@ -71,6 +73,7 @@
     async function loadRepos() {
       const q = $('q').value, filter = $('filter').value, sort = $('sort').value;
       const data = await api('/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort);
+      $('repoCount').textContent = (data.total ?? data.repos.length) + ' 個專案';
       $('grid').innerHTML = data.repos.map((r) => {
         const [cls, label] = lamp(r);
         const msg = (r.lastCommitMsg || '').slice(0, 72);
@@ -110,6 +113,7 @@
       const rootDir = $('rootDir').value.trim();
       if (!rootDir) throw new Error('請先貼上要掃的目錄');
       $('grid').innerHTML = '';
+      $('repoCount').textContent = '0 個專案';
       setScanning(true, '掃描中…');
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), SCAN_FETCH_MS);
@@ -139,7 +143,10 @@
     $('rootDir').addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') { ev.preventDefault(); scanNow().catch((e) => toast(String(e.message || e))); }
     });
-    $('rootDir').addEventListener('input', () => { $('grid').innerHTML = ''; });
+    $('rootDir').addEventListener('input', () => {
+      $('grid').innerHTML = '';
+      $('repoCount').textContent = '0 個專案';
+    });
     ['q', 'filter', 'sort'].forEach((id) => $(id).onchange = () => loadRepos().catch((e) => toast(e.message)));
     $('q').oninput = () => loadRepos().catch((e) => toast(e.message));
     $('grid').onclick = async (ev) => {

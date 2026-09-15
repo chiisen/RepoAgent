@@ -7,3 +7,6 @@ data/jobs/*.log
 .vite/
 *.log
 npm-debug.log*
+playwright-report/
+test-results/
+blob-report/

@@ -33,6 +33,7 @@ V1 目標：
 - `npm run dev` 同起前後端，`npm run build` 把 web 打包進 `server/public`，正式只跑一個 port（預設 3000）。
 - 前端只讀 DB，不直接跑 git。掃描與優化皆由後端執行，經 WS 推播進度。
 - SQLite 單檔存放於 `data/repoagent.db`，job log 存檔於 `data/jobs/{jobId}.log`。
+- 正式環境優先送 `apps/web/dist`；若尚未 `npm run build`（沒有 `dist/index.html`），後端必須改送 `apps/web/public` fallback 頁，`GET /` 不得落到 Express 預設 404。
 
 ### 後端模組邊界
 
@@ -94,14 +95,17 @@ jobs(id TEXT PK, repoId TEXT, prompt TEXT, status TEXT,
 ### 4.2 掃描流
 
 1. `POST /api/scan {rootDir}` → 建 scans 紀錄 → `fs.readdir(rootDir, {withFileTypes:true})` 只取目錄。
-2. 每目錄依序：
+2. 每目錄（可並行，預設上限 6）：
    - 不存在 `.git` → 跳過。
    - 跑 `rev-parse --abbrev-ref HEAD` 取分支。
-   - 跑 `status --porcelain` 判斷 dirty + 計數。
+   - 跑 `status --porcelain`（禁止改用會掃盡未追蹤檔的完整 `git.status()`）。
    - 跑 `log -1 --format=%H|%ad|%s --date=iso` 取最後 commit。
+   - 單一 repo 的 git 指令硬逾時 12 秒（設 `GIT_TERMINAL_PROMPT=0`，避免等憑證）；逾時該筆失敗並繼續。
    - 寫入 repos（upsert by path）。
 3. 單一 repo 失敗不中斷整批，該筆寫 `lastError`，前台紅燈。
-4. rootDir 不存在/無權限 → 400 + 明確訊息，前端 toast。
+4. 本輪掃描結束後，刪除「不在本輪 `rootDir` 下一層」的舊 `repos` 列（換目錄必須覆蓋列表，不得混入上一層專案）。
+5. rootDir 不存在/無權限 → 400 + 明確訊息，前端 toast。
+6. 掃描進行中須能回報進度（至少 `done/total`）；前端按鈕可只顯示「掃描中」，進度放遮罩或狀態列。
 
 git 失敗對照：
 - `not a git repository` → 視為跳過。
@@ -136,7 +140,7 @@ git 失敗對照：
 
 ## 5. 非功能需求
 
-- 效能：50 repo 掃描 < 15 秒；首屏 < 1.5 秒（讀 DB）。
+- 效能：50 repo 掃描 < 15 秒；約 200 個下一層 git 專案不得無逾時卡死（靠並行 6 + 單 repo 12 秒）。首屏 < 1.5 秒（讀 DB）。
 - 可用性：字級 >=14px、燈號 + 文字雙通道（色盲友善）。
 - 可攜：路徑一律 `path.resolve`，支援 Windows 中文路徑與空白路徑（spawn 用 args 陣列不拼接字串）。
 - 資料保留：log 保留最近 50 個 job 檔，超過刪檔不刪 DB 紀錄。
@@ -151,10 +155,11 @@ git 失敗對照：
 ## 7. 測試計畫
 
 - 後端 `vitest`：
-  - scanner fixture：temp dir `git init + commit + dirty` 三態斷言。
-  - optimizer：mock spawn 回放 log，斷言 WS 事件順序。
-  - API e2e：scan→optimize→rescan 全鏈。
-- 前端 `playwright` smoke：mock API 回 3 種燈號，斷言不斷行 + 截圖。
+  - scanner fixture：temp dir `git init + commit + dirty` 三態斷言；換 rootDir 覆蓋舊列。
+  - optimizer：mock spawn 回放 log，斷言結束事件。
+  - HTTP 煙霧：`GET /` 200 HTML、`GET /favicon.ico` 200、`GET /api/scan/progress` 契約。
+  - API e2e：scan→optimize→rescan 全鏈（尚未單測貫穿，jobs 與 scan 分開覆蓋）。
+- 前端 `playwright` smoke：開總覽頁，斷言本頁無 `pageerror`／非擴充功能 console error（忽略 `content_main.js`）。
 - 手動：Windows 實機 `D:\github\chiisen` 驗證中文路徑，`git diff --check` 通過。
 
 ## 8. 決策紀錄
@@ -170,5 +175,9 @@ git 失敗對照：
 
 - pi 輸出不可控 → 只串流不解析，以 exit code 判成敗，重掃 git 狀態為準。
 - 長時間優化卡死 → 預設 10 分鐘 timeout + 取消按鈕。
+- 掃描卡在 git（未追蹤檔、憑證提示、上百個 repo）→ porcelain + 單 repo 逾時 + 並行上限；前端請求逾時須解除「掃描中」。
+- 換 rootDir 仍看到舊專案 → 掃描結束以本輪 path 集合覆蓋 `repos`。
+- 尚未 build 前端 → `web/public` fallback，禁止 Express 預設 404。
 - 中文/空白路徑 → spawn args 陣列 + path.resolve，全鏈手動驗證。
 - 誤改程式碼 → prompt 要求保留 git 可回退，優化前記錄 `lastCommitHash` 以便比對。
+- 本機 `data/config.json` 含各環境路徑 → 不納版控（`.gitignore`）。
