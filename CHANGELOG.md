@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 新增 `startJob` mock-spawn 回歸測試（6 項）：spawn 參數鎖定、成功/失敗單次 `job:done`、ENOENT 提示、Windows `shell` 解析、cancel 實際殺進程、逾時 SIGTERM→SIGKILL。
+
 ### 修正
 
 - 修正 `index.ts` 於 ESM 下使用 `__dirname` 導致雙平台啟動即崩潰，改以 `import.meta.url` 推導路徑。
