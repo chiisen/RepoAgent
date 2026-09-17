@@ -4,10 +4,12 @@ import { EventEmitter } from 'node:events';
 import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { openDb } from '../src/db.js';
-import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, jobMap, childMap } from '../src/optimizer.js';
+import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, getJobTimeoutMs, jobMap, childMap } from '../src/optimizer.js';
+import { configStore } from '../src/config.js';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
+  execFile: vi.fn(),
 }));
 
 let db: ReturnType<typeof openDb>;
@@ -24,7 +26,7 @@ afterEach(() => {
 
 describe('optimizer runtime', () => {
   it('should have JOB_TIMEOUT_MS constant', () => {
-    expect(JOB_TIMEOUT_MS).toBe(600_000);
+    expect(JOB_TIMEOUT_MS).toBe(1_800_000);
   });
 
   it('should have createJob function', () => {
@@ -66,6 +68,30 @@ describe('optimizer runtime', () => {
   it('should return undefined for non-existent job', () => {
     const result = getJobStatus('non-existent-id');
     expect(result).toBeUndefined();
+  });
+
+  it('getActiveJob 只回傳 queued/running 的 job', () => {
+    expect(getActiveJob()).toBeUndefined();
+    const job = createJob('/r', 'p');
+    expect(getActiveJob()?.id).toBe(job.id);
+    cancelJob(job.id);
+    expect(getActiveJob()).toBeUndefined();
+  });
+
+  it('getJobTimeoutMs 跟隨 configStore.timeout，異常值退回預設', () => {
+    const saved = configStore.timeout;
+    try {
+      configStore.timeout = 1800;
+      expect(getJobTimeoutMs()).toBe(1_800_000);
+      configStore.timeout = 60;
+      expect(getJobTimeoutMs()).toBe(60_000);
+      configStore.timeout = NaN;
+      expect(getJobTimeoutMs()).toBe(JOB_TIMEOUT_MS);
+      (configStore as any).timeout = 'bad';
+      expect(getJobTimeoutMs()).toBe(JOB_TIMEOUT_MS);
+    } finally {
+      configStore.timeout = saved;
+    }
   });
 });
 
@@ -111,7 +137,7 @@ describe('startJob with mocked spawn', () => {
     expect(mockSpawn).toHaveBeenCalledTimes(1);
     const [cmd, args, opts] = mockSpawn.mock.calls[0];
     expect(cmd).toBe('pi');
-    expect(args).toEqual(['build', 'test prompt', '--repo', resolve('/test/repo')]);
+    expect(args).toEqual(['--offline', '--print', '--approve', '--thinking', 'minimal', 'test prompt']);
     expect(opts).toMatchObject({
       cwd: resolve('/test/repo'),
       shell: process.platform === 'win32',
@@ -213,6 +239,22 @@ describe('startJob with mocked spawn', () => {
     expect(jobDoneCount()).toBe(1);
   });
 
+  it('Windows 下 terminate 用 taskkill /T 連樹砍，避免孤兒 pi', async () => {
+    if (process.platform !== 'win32') return;
+    const { execFile } = await import('node:child_process');
+    const child = makeMockChild() as any;
+    child.pid = 12345;
+    mockSpawn.mockReturnValue(child);
+    const job = createJob('/test/repo', 'prompt');
+    createdLogs.push(resolve('data', 'jobs', `${job.id}.log`));
+
+    startJob(job, db); // 保持 pending，不觸發 exit
+    cancelJob(job.id);
+
+    expect(execFile).toHaveBeenCalledWith(
+      'taskkill', ['/PID', '12345', '/T', '/F'], expect.anything(), expect.anything(),
+    );
+  });
   it('逾時先 SIGTERM、10 秒寬限後 SIGKILL 並標記 failed', async () => {
     vi.useFakeTimers();
     try {

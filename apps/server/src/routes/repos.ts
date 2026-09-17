@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
 import { randomUUID } from 'node:crypto';
-import { createJob, startJob, DEFAULT_PROMPT_TEMPLATE } from '../optimizer.js';
+import { createJob, startJob, getActiveJob, DEFAULT_PROMPT_TEMPLATE } from '../optimizer.js';
 import { lastOutputLine, pullFastForward } from '../pull.js';
 import { refreshRepo } from '../scanner.js';
 
@@ -62,9 +62,17 @@ export function createReposRouter(db: DatabaseSync): Router {
   });
 
   // 優化：建 job 並 fire-and-forget 啟動，以 WS/輪詢追蹤進度
+  // V1 單併發：已有執行中 job 時回 409（前端接到後直接打開該 job 的監控）
   router.post('/repos/:id/optimize', (req: Request, res: Response) => {
     const repo = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id) as any;
     if (!repo) return res.status(404).json({ error: 'repo not found' });
+    const active = getActiveJob();
+    if (active) {
+      return res.status(409).json({
+        error: `已有優化執行中（job ${active.id}），請等完成後再按`,
+        jobId: active.id,
+      });
+    }
     const custom = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
     const prompt = custom
       || DEFAULT_PROMPT_TEMPLATE.replace('{repoPath}', repo.path).replace('{branch}', repo.branch);

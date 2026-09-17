@@ -39,7 +39,13 @@ export function createConfigRouter() {
     if (rootDir !== undefined) configStore.rootDir = req.body.rootDir as string;
     if (piPath !== undefined) configStore.piPath = piPath;
     if (promptTemplate !== undefined) configStore.promptTemplate = promptTemplate;
-    if (timeout !== undefined) configStore.timeout = timeout;
+    if (timeout !== undefined) {
+      const n = Number(timeout);
+      if (!Number.isInteger(n) || n < 60 || n > 7200) {
+        return res.status(400).json({ error: `timeout must be an integer 60..7200 (seconds), got: ${timeout}` });
+      }
+      configStore.timeout = n;
+    }
 
     saveConfig();
     res.json({

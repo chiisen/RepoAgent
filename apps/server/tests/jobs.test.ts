@@ -145,6 +145,38 @@ describe('POST /api/repos/:id/optimize', () => {
     const { status } = await api('/api/repos/no-such-id/optimize', { method: 'POST' });
     expect(status).toBe(404);
   });
+
+  it('已有執行中 job 時再按回 409，完成後可再按', async () => {
+    const child = pushMockChild();
+    const first = await api(`/api/repos/${repoId}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(first.status).toBe(202);
+    trackLog(first.body.job.id);
+
+    const second = await api(`/api/repos/${repoId}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(second.status).toBe(409);
+    expect(second.body.jobId).toBe(first.body.job.id);
+
+    child.stdout.emit('data', Buffer.from('x\n'));
+    child.emit('exit', 0);
+
+    const child3 = pushMockChild();
+    const third = await api(`/api/repos/${repoId}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(third.status).toBe(202);
+    trackLog(third.body.job.id);
+    child3.emit('exit', 0);
+  });
 });
 
 describe('GET /api/jobs/:id 與 DELETE /api/jobs/:id', () => {

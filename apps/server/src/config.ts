@@ -17,8 +17,8 @@ export const defaults = {
   rootDir: process.platform === 'win32' ? 'D:\\github' : '/home/user/github',
   piPath: 'pi',
   promptTemplate:
-    '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}',
-  timeout: 600,
+    '用繁體中文回覆「OK」，並列出此 repo 根目錄前 10 個檔名，不修改任何檔案，直接回答，不需查證環境。',
+  timeout: 1800,
 };
 
 let config: ConfigStore = { ...defaults };

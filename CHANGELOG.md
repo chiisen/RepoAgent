@@ -7,6 +7,13 @@
 
 ### 新增
 
+- 取消改用 `taskkill /PID /T /F` 連進程樹砍掉：Windows 下 `shell:true` 會包 cmd，只殺 wrapper 會留下孤兒 pi 續跑（實測確認）。
+
+- 預設優化 prompt 測試期簡化＋提速：只回「OK」＋列根目錄前 10 檔、不改檔案；去掉 `repo=/branch=` 尾巴（pi 會拿它當待查證問題多跑數輪工具）並要求直接回答；spawn 加 `--offline`（跳過啟動期網路動作，實測啟動波動降為 1～2 秒）與 `--thinking minimal` 降推理檔。換回正式優化 prompt 時記得把 thinking 調回。
+- 修正心跳誤報：只認檔名啟動時間與 job 相差 3 分鐘內的 pi session，不再被舊 job／孤兒進程的寫檔誤導。
+
+- 卡片「用 pi 優化」按下後右側 drawer 即時監控：每 2 秒輪詢 `GET /api/jobs/:id` 顯示狀態／exitCode／起訖時間與 log 尾 50 行，支援取消（`DELETE /api/jobs/:id`），完成或失敗自動停止輪詢。
+
 - 卡片顯示最後按「更新」的時間與 pull 回傳的最後一行（`lastPullAt` / `lastPullMsg`）。
 
 - 卡片「更新」：對單一 repo 執行 `git pull --ff-only`（dirty 跳過、無 upstream 失敗、成功後重掃該卡，log 寫入 `data/jobs/pull-*.log`）。
@@ -22,6 +29,7 @@
 ### 修正
 
 - 卡片「最後更新」時間與訊息改用不同字體顏色（時間灰、訊息白），避免兩者難以區分。
+- 修正 `optimizer` 的 pi 呼叫參數：`pi` 無 `build` 子命令與 `--repo` 選項（log 報 `Unknown option: --repo`），改為非互動 `pi --print --approve <prompt>` 並以 `cwd` 指定 repo（`--approve` 避免未受信目錄在無 TTY 下無聲卡死）；job log 首行記 spawn 指令／pid／cwd、尾行記 exit code，無換行殘行也落檔，空 log 更好偵錯。
 
 - `git pull` 改 `execFile` 硬逾時 25 秒並禁止互動憑證，避免「更新中」卡死；前端 30 秒中止請求。
 

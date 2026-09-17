@@ -1,10 +1,11 @@
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Server } from 'ws';
 import { randomUUID } from 'node:crypto';
+import { configStore } from './config.js';
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 
@@ -19,12 +20,22 @@ export interface JobRecord {
   finishedAt: string | null;
 }
 
-const JOB_TIMEOUT_MS = 600_000; // 600 seconds default
+const JOB_TIMEOUT_MS = 1_800_000; // 預設 30 分鐘；實際以 configStore.timeout（秒）為準
 const KILL_GRACE_MS = 10_000; // SIGTERM 後等 10 秒再 SIGKILL（雙平台）
 
-// 規格 §4.3 預設 prompt 樣板（{repoPath}/{branch} 由呼叫方代入）
+// job 逾時改為可設定：讀 configStore.timeout（秒，PUT /api/config 可改 60..7200），
+// 異常值退回預設，避免改壞設定導致永不逾時或秒殺。
+export function getJobTimeoutMs(): number {
+  const s = Number(configStore.timeout);
+  if (!Number.isFinite(s) || s < 60 || s > 7200) return JOB_TIMEOUT_MS;
+  return Math.floor(s) * 1000;
+}
+
+// 規格 §4.3 預設 prompt 樣板
+// 測試期簡化版：只讀根目錄、不改檔案；不帶 repo=/branch=（cwd 已是該 repo，
+// 實測 pi 會把那串尾巴當成待查證問題，多跑好幾輪工具），並要求直接回答。
 export const DEFAULT_PROMPT_TEMPLATE =
-  '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}';
+  '用繁體中文回覆「OK」，並列出此 repo 根目錄前 10 個檔名，不修改任何檔案，直接回答，不需查證環境。';
 const jobMap = new Map<string, JobRecord>();
 const childMap = new Map<string, ChildProcess>();
 // 逾時計時器獨立存放：job 物件需保持 JSON 可序列化（API 直接回傳），不可掛 Timeout
@@ -59,6 +70,11 @@ export function initOptimizer(io: Server, db: DatabaseSync): void {
 // 跨平台 kill：Windows 上 SIGTERM/SIGKILL 皆為強制終止（Node 模擬），
 // macOS/Linux 上先 SIGTERM 給 graceful 機會，超時再 SIGKILL。
 function terminate(child: ChildProcess): void {
+  if (process.platform === 'win32' && child.pid !== undefined) {
+    // shell:true 會包一層 cmd，只殺 wrapper 會留下孤兒 pi 續跑；
+    // taskkill /T 把整棵進程樹砍掉（/F 強制）。
+    execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+  }
   try {
     child.kill('SIGTERM');
   } catch { return; }
@@ -95,7 +111,15 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       return;
     }
 
-    const args = ['build', prompt, '--repo', repoPath];
+    // pi 無 build 子命令與 --repo 選項；非互動 job 用 `pi --print <prompt>`，
+    // cwd 已是該 repo（見下方 spawn opts），故不需另傳路徑。
+    // --approve：該 repo 若不在 pi trust 名單內會等使用者確認，
+    // 在無 TTY 的 job 下會無聲卡死直到逾時；使用者既已按優化即視為授權。
+    // --offline：跳過啟動期網路動作（更新檢查等），實測啟動從數分鐘級波動降為秒級；
+    // 模型呼叫本身仍走網路，不受影響。
+    // --thinking minimal：測試期降推理檔以求快；換回正式優化 prompt 時記得拿掉，
+    // 否則複雜重構品質會受影響。
+    const args = ['--offline', '--print', '--approve', '--thinking', 'minimal', prompt];
     let child: ChildProcess;
     try {
       child = spawn(piPath, args, {
@@ -116,6 +140,9 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       return;
     }
     childMap.set(job.id, child);
+    try {
+      fs.appendFileSync(job.logPath!, `$ spawn: ${piPath} ${args.map((a) => JSON.stringify(a)).join(' ')} (pid=${child.pid}, cwd=${repoPath})\n`);
+    } catch { /* 首行寫失敗不影響執行 */ }
 
     let outRest = '';
     let errRest = '';
@@ -146,9 +173,16 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     child.on('exit', (code) => {
       clearJobTimeout(job.id);
       childMap.delete(job.id);
+      // 無結尾換行的殘行（pi 異常退出時常見）直接落檔，避免最後訊息遺失
+      for (const rest of [outRest, errRest]) {
+        if (rest.trim()) {
+          try { fs.appendFileSync(job.logPath!, rest + '\n'); } catch { /* 忽略 */ }
+        }
+      }
       job.exitCode = code;
       job.status = code === 0 ? 'done' : 'failed';
       job.finishedAt = new Date().toISOString();
+      try { fs.appendFileSync(job.logPath!, `$ exit: code=${code}\n`); } catch { /* 忽略 */ }
       wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
       done();
     });
@@ -169,16 +203,17 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       done();
     });
 
-    // Timeout watchdog：先 SIGTERM，10 秒不死才 SIGKILL
+    // Timeout watchdog：先 SIGTERM，10 秒不死才 SIGKILL（時限見 getJobTimeoutMs）
     timeoutMap.set(job.id, setTimeout(() => {
       timeoutMap.delete(job.id);
       const c = childMap.get(job.id);
       if (c) terminate(c);
       job.status = 'failed';
       job.finishedAt = new Date().toISOString();
+      try { fs.appendFileSync(job.logPath!, `$ timeout: exceeded ${Math.round(getJobTimeoutMs() / 1000)}s\n`); } catch { /* 忽略 */ }
       wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
       done();
-    }, JOB_TIMEOUT_MS));
+    }, getJobTimeoutMs()));
   });
 }
 
@@ -213,6 +248,14 @@ export function cancelJob(jobId: string): void {
   job.finishedAt = new Date().toISOString();
   wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
   jobMap.delete(jobId);
+}
+
+// V1 單併發：同一時間只跑一個 pi，有 queued/running 的 job 即視為忙碌中
+export function getActiveJob(): JobRecord | undefined {
+  for (const job of jobMap.values()) {
+    if (job.status === 'queued' || job.status === 'running') return job;
+  }
+  return undefined;
 }
 
 // Get job status
