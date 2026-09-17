@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { readFileSync, rmSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { openDb } from '../src/db.js';
-import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, getJobTimeoutMs, jobMap, childMap } from '../src/optimizer.js';
+import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, getJobTimeoutMs, jobMap, childMap, pruneJobLogs, MAX_JOB_LOGS } from '../src/optimizer.js';
 import { configStore } from '../src/config.js';
 
 vi.mock('node:child_process', () => ({
@@ -281,5 +282,61 @@ describe('startJob with mocked spawn', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('pruneJobLogs（規格 §5：保留最近 50 個 job 檔）', () => {
+  let dir = '';
+  const BASE_MS = Date.parse('2026-01-01T00:00:00Z');
+
+  function makeLogs(n: number, ext = '.log') {
+    for (let i = 0; i < n; i++) {
+      const f = join(dir, `job-${String(i).padStart(3, '0')}${ext}`);
+      writeFileSync(f, `log ${i}`);
+      const t = new Date(BASE_MS + i * 1000);
+      utimesSync(f, t, t); // mtime 遞增：編號越大越新
+    }
+  }
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'repoagent-prune-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('預設保留 50 檔', () => {
+    expect(MAX_JOB_LOGS).toBe(50);
+  });
+
+  it('超過 50 刪最舊、留最新', () => {
+    makeLogs(55);
+    const r = pruneJobLogs(dir);
+    expect(r).toEqual({ kept: 50, deleted: 5 });
+    const rest = readdirSync(dir).sort();
+    expect(rest).toHaveLength(50);
+    expect(existsSync(join(dir, 'job-000.log'))).toBe(false);
+    expect(existsSync(join(dir, 'job-004.log'))).toBe(false);
+    expect(existsSync(join(dir, 'job-005.log'))).toBe(true);
+    expect(existsSync(join(dir, 'job-054.log'))).toBe(true);
+  });
+
+  it('不足 50 不刪檔', () => {
+    makeLogs(3);
+    expect(pruneJobLogs(dir)).toEqual({ kept: 3, deleted: 0 });
+    expect(readdirSync(dir)).toHaveLength(3);
+  });
+
+  it('非 .log 檔不動', () => {
+    makeLogs(51);
+    writeFileSync(join(dir, 'keep.txt'), 'x');
+    pruneJobLogs(dir);
+    expect(existsSync(join(dir, 'keep.txt'))).toBe(true);
+    expect(readdirSync(dir).filter((f) => f.endsWith('.log'))).toHaveLength(50);
+  });
+
+  it('目錄不存在時不拋錯', () => {
+    expect(pruneJobLogs(join(dir, 'no-such-dir'))).toEqual({ kept: 0, deleted: 0 });
   });
 });

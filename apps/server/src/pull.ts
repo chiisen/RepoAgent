@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { pruneJobLogs } from './optimizer.js';
 
 export const PULL_TIMEOUT_MS = 25_000;
 const execFileAsync = promisify(execFile);
@@ -38,6 +39,7 @@ function writeLog(name: string, body: string): string {
   mkdirSync(dir, { recursive: true });
   const logPath = join(dir, name);
   writeFileSync(logPath, body.endsWith('\n') ? body : body + '\n');
+  pruneJobLogs(dir); // 與 optimize job 共用同一輪轉上限（規格 §5）
   return logPath;
 }
 

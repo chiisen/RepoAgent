@@ -49,6 +49,37 @@ function clearJobTimeout(jobId: string): void {
   }
 }
 
+// 規格 §5：log 保留最近 50 個 job 檔，超過刪檔不刪 DB 紀錄
+// （jobs 僅存記憶體 jobMap，DB jobs 表目前無寫入，故只需清檔案）。
+// 清理為 best-effort：任何失敗都吞掉，不影響建 job／寫 log 主流程。
+export const MAX_JOB_LOGS = 50;
+
+export function pruneJobLogs(dir: string, keep = MAX_JOB_LOGS): { kept: number; deleted: number } {
+  let files: string[];
+  try {
+    files = fs.readdirSync(dir).filter((f) => f.endsWith('.log'));
+  } catch {
+    return { kept: 0, deleted: 0 }; // 目錄不存在時不做事、不報錯
+  }
+  if (files.length <= keep) return { kept: files.length, deleted: 0 };
+  const withTime = files.map((f) => {
+    let mtimeMs = 0;
+    try {
+      mtimeMs = fs.statSync(path.join(dir, f)).mtimeMs;
+    } catch { /* 競刪的檔視為最舊，優先清掉 */ }
+    return { f, mtimeMs };
+  });
+  withTime.sort((a, b) => b.mtimeMs - a.mtimeMs || (a.f < b.f ? -1 : 1));
+  let deleted = 0;
+  for (const { f } of withTime.slice(keep)) {
+    try {
+      fs.rmSync(path.join(dir, f), { force: true });
+      deleted++;
+    } catch { /* 單檔清失敗不中斷，留待下次 */ }
+  }
+  return { kept: files.length - deleted, deleted };
+}
+
 // exported for testing
 export { jobMap, childMap, JOB_TIMEOUT_MS, KILL_GRACE_MS };
 
@@ -102,6 +133,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     try {
       fs.mkdirSync(path.dirname(job.logPath), { recursive: true });
       fs.writeFileSync(job.logPath, '');
+      pruneJobLogs(path.dirname(job.logPath));
     } catch (e) {
       job.status = 'failed';
       job.exitCode = -1;

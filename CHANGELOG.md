@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- job log 輪轉：`data/jobs` 保留最新 50 個 `.log`（mtime 排序，超過刪檔不刪 DB 紀錄，失敗為 best-effort 不影響主流程）；optimize 建 job 與 pull 寫 log 共用同一上限（issue #4 收尾）。
+
 ## [0.1.0] - 2026-09-17
 
 ### 新增
