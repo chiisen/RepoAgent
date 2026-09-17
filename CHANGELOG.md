@@ -7,6 +7,8 @@
 
 ### 新增
 
+- 修正中文 prompt 經 cmd 被切碎：`shell:true` 下 cmd.exe 把含空白的中文 prompt 拆成多段 messages（pi 誤讀還跑去列父目錄），改走 stdin 傳 UTF-8，並吞掉 EPIPE；手動驗證 pi 可正確回應。
+
 - 取消改用 `taskkill /PID /T /F` 連進程樹砍掉：Windows 下 `shell:true` 會包 cmd，只殺 wrapper 會留下孤兒 pi 續跑（實測確認）。
 
 - 預設優化 prompt 測試期簡化＋提速：只回「OK」＋列根目錄前 10 檔、不改檔案；去掉 `repo=/branch=` 尾巴（pi 會拿它當待查證問題多跑數輪工具）並要求直接回答；spawn 加 `--offline`（跳過啟動期網路動作，實測啟動波動降為 1～2 秒）與 `--thinking minimal` 降推理檔。換回正式優化 prompt 時記得把 thinking 調回。

@@ -108,7 +108,8 @@ describe('startJob with mocked spawn', () => {
     child.exitCode = null;
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
-    return child as { kill: ReturnType<typeof vi.fn>; stdout: EventEmitter; stderr: EventEmitter; emit: EventEmitter['emit']; on: EventEmitter['on'] };
+    child.stdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
+    return child as { kill: ReturnType<typeof vi.fn>; stdout: EventEmitter; stderr: EventEmitter; stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn>; on: ReturnType<typeof vi.fn> }; emit: EventEmitter['emit']; on: EventEmitter['on'] };
   }
 
   function jobDoneCount() {
@@ -137,7 +138,9 @@ describe('startJob with mocked spawn', () => {
     expect(mockSpawn).toHaveBeenCalledTimes(1);
     const [cmd, args, opts] = mockSpawn.mock.calls[0];
     expect(cmd).toBe('pi');
-    expect(args).toEqual(['--offline', '--print', '--approve', '--thinking', 'minimal', 'test prompt']);
+    expect(args).toEqual(['--offline', '--print', '--approve', '--thinking', 'minimal']);
+    expect(child.stdin.write).toHaveBeenCalledWith('test prompt', 'utf8');
+    expect(child.stdin.end).toHaveBeenCalled();
     expect(opts).toMatchObject({
       cwd: resolve('/test/repo'),
       shell: process.platform === 'win32',

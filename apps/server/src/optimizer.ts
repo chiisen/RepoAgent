@@ -119,7 +119,10 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     // 模型呼叫本身仍走網路，不受影響。
     // --thinking minimal：測試期降推理檔以求快；換回正式優化 prompt 時記得拿掉，
     // 否則複雜重構品質會受影響。
-    const args = ['--offline', '--print', '--approve', '--thinking', 'minimal', prompt];
+    // prompt 走 stdin 而非 argv：Windows shell:true 經 cmd.exe 會把中文 prompt
+    // 按空白切成多段 messages（實測 pi 收到「用繁體中文回覆OK，並列出此」+「repo」…
+    // 碎片，還誤讀跑去列父目錄）；stdin 傳 UTF-8 位元組流，無 cmd 解析問題。
+    const args = ['--offline', '--print', '--approve', '--thinking', 'minimal'];
     let child: ChildProcess;
     try {
       child = spawn(piPath, args, {
@@ -141,8 +144,14 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     }
     childMap.set(job.id, child);
     try {
-      fs.appendFileSync(job.logPath!, `$ spawn: ${piPath} ${args.map((a) => JSON.stringify(a)).join(' ')} (pid=${child.pid}, cwd=${repoPath})\n`);
+      fs.appendFileSync(job.logPath!, `$ spawn: ${piPath} ${args.map((a) => JSON.stringify(a)).join(' ')} (pid=${child.pid}, cwd=${repoPath}, prompt ${prompt.length} chars via stdin)\n`);
     } catch { /* 首行寫失敗不影響執行 */ }
+    // prompt 經 stdin 餵給 pi；pi 先退出的話 write 會 EPIPE，吞掉避免崩服務
+    try {
+      child.stdin?.on('error', () => {});
+      child.stdin?.write(prompt, 'utf8');
+      child.stdin?.end();
+    } catch { /* pi 已退出的競態，忽略 */ }
 
     let outRest = '';
     let errRest = '';
