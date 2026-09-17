@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-17
+
 ### 新增
 
 - 修正中文 prompt 經 cmd 被切碎：`shell:true` 下 cmd.exe 把含空白的中文 prompt 拆成多段 messages（pi 誤讀還跑去列父目錄），改走 stdin 傳 UTF-8，並吞掉 EPIPE；手動驗證 pi 可正確回應。
@@ -27,6 +29,10 @@
 - 新增缺口 API：`GET /api/repos/:id`（詳情：status 前 50 行＋近 5 筆 commit）、`POST /api/repos/:id/optimize`（建 job 並啟動）、`GET /api/jobs/:id`（狀態＋log 尾 50 行）、`DELETE /api/jobs/:id`（取消）。
 - 新增 `tests/jobs.test.ts` 端點測試（8 項，spawn 哨兵 mock＋真 git 透傳）。
 - 新增設定模組 `configStore` 與 `GET/PUT /api/config`（rootDir/piPath/promptTemplate/timeout，持久化至 `data/config.json`）。
+
+### 變更
+
+- 優化 prompt 由測試期簡化版（回 OK＋列前 10 檔、不改檔案）換回規格 §4.3 正式版（分析品質並執行安全的優化）；`pi` spawn 移除 `--thinking minimal`，複雜重構不再降推理檔（`--offline`、`--print`、`--approve`、stdin 傳 prompt 維持）。
 
 ### 修正
 
@@ -55,3 +61,5 @@
 - 修正 `job` 物件攜帶 Node `Timeout` 導致 API `res.json` 循環引用崩潰：逾時計時器改存獨立 `timeoutMap`。
 - `apps/server` 新增 `engines: node >= 22`（`node:sqlite` 需求）。
 - 修正 `config.ts` ESM 相容（移除 `require`/`__dirname`），修正設定路由掛載至 `/api/config`。
+- 修 `scanner.ts` upsert 缺 `lastPullAt`／`lastPullMsg` 導致 `npm run typecheck` 失敗；並移除 simple-git 構造參數中實際無效的 `spawnOptions.env`（3.36 僅支援 uid／gid，傳 env 會被靜默忽略），改以 `process.env` 預設值落實規格 §4.2 防憑證等待（`GIT_TERMINAL_PROMPT=0` 等）。
+- 修 `tests/api.test.ts` 固定 port `34567` 競態（`EADDRINUSE`／`fetch failed`）：改動態 port 並等待 `listening`／`close`。
