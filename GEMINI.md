@@ -15,7 +15,7 @@
 ```powershell
 cd apps/server
 npm install
-npx tsx src/index.ts
+npm start
 ```
 
 瀏覽器：`http://localhost:3000`。不要在 repo 根目錄跑 `tsx src/index.ts`。

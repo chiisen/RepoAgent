@@ -19,7 +19,7 @@ npm install
 ### 2. 啟動後端伺服器
 ```powershell
 cd apps/server
-npx tsx src/index.ts
+npm start
 ```
 伺服器將在 `http://localhost:3000` 啟動。
 
@@ -124,7 +124,7 @@ npm install
 npx vite build
 
 # 4. 重啟後端伺服器 (先停止再重啟)
-#    按 Ctrl+C 停止之前的 npx tsx src/index.ts
+#    按 Ctrl+C 停止之前的 npm start
 #    然後重新執行第 2 步的啟動命令
 
 # 5. 開啟 http://localhost:3000

@@ -28,6 +28,8 @@
 
 ### 修正
 
+- 啟動方式改 `npm start`（tsx 已收為本地依賴，免去 npx 連 registry，啟動 9 秒→3 秒）：同步 `README.md` 與 `AGENTS.md`／`CLAUDE.md`／`GEMINI.md`。
+
 - 卡片「最後更新」時間與訊息改用不同字體顏色（時間灰、訊息白），避免兩者難以區分。
 - 修正 `optimizer` 的 pi 呼叫參數：`pi` 無 `build` 子命令與 `--repo` 選項（log 報 `Unknown option: --repo`），改為非互動 `pi --print --approve <prompt>` 並以 `cwd` 指定 repo（`--approve` 避免未受信目錄在無 TTY 下無聲卡死）；job log 首行記 spawn 指令／pid／cwd、尾行記 exit code，無換行殘行也落檔，空 log 更好偵錯。
 
