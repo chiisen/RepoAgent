@@ -10,7 +10,7 @@ import { createScanRouter } from '../src/routes/scan.js';
 import express from 'express';
 
 function git(cwd: string, ...args: string[]) { execFileSync('git', [...args], { cwd, stdio: 'pipe' }); }
-let root = '', port = 34567, server: ReturnType<express.Application['listen']>;
+let root = '', port = 0, server: ReturnType<express.Application['listen']>;
 let db: ReturnType<typeof openDb>;
 
 beforeAll(async () => {
@@ -31,12 +31,14 @@ beforeAll(async () => {
   app.use(express.json());
   app.use('/api', createReposRouter(db));
   app.use('/api', createScanRouter(db));
-  server = app.listen(port);
+  server = app.listen(0);
+  await new Promise<void>((resolve) => server.on('listening', () => resolve()));
+  port = (server.address() as { port: number }).port;
 });
 
-afterAll(() => { 
-  server.close(); 
-  rmSync(root, { recursive: true, force: true }); 
+afterAll(async () => {
+  await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
+  rmSync(root, { recursive: true, force: true });
 });
 
 describe('GET /api/repos', () => {

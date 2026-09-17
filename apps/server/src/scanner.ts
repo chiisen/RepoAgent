@@ -29,17 +29,21 @@ const SKIP_DIRS = new Set(['node_modules', '.superpowers', '.git']);
 const GIT_TIMEOUT_MS = 12_000;
 const SCAN_CONCURRENCY = 6;
 
+// 規格 §4.2：掃描的 git 子進程不得等待憑證輸入。
+// simple-git 3.36 的構造參數 spawnOptions 僅支援 uid/gid（傳 env 會被靜默忽略），
+// 而 .env() 會整組取代子進程 env 並觸發 unsafe 守衛（如 PAGER），故改以 process.env
+// 預設值讓子進程自然繼承；同事先設定的值不受影響。
+for (const [k, v] of Object.entries({
+  GIT_TERMINAL_PROMPT: '0',
+  GCM_INTERACTIVE: 'never',
+  GIT_OPTIONAL_LOCKS: '0',
+} as const)) {
+  process.env[k] ??= v;
+}
+
 function gitClient(repoPath: string) {
   return simpleGit(repoPath, {
     timeout: { block: GIT_TIMEOUT_MS },
-    spawnOptions: {
-      env: {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: '0',
-        GCM_INTERACTIVE: 'never',
-        GIT_OPTIONAL_LOCKS: '0',
-      },
-    },
   });
 }
 
@@ -61,6 +65,8 @@ export async function refreshRepo(db: DatabaseSync, repoPath: string, lastError 
       lastCommitMsg: info.lastCommitMsg,
       lastScannedAt: now,
       lastError,
+      lastPullAt: '',
+      lastPullMsg: '',
     });
   } catch (e) {
     const id = await repoId(db, repoPath);
@@ -163,6 +169,8 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
       lastCommitMsg: item.info.lastCommitMsg,
       lastScannedAt: now,
       lastError: '',
+      lastPullAt: '',
+      lastPullMsg: '',
     });
     okCount++;
   }
