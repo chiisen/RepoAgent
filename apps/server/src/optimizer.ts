@@ -31,11 +31,11 @@ export function getJobTimeoutMs(): number {
   return Math.floor(s) * 1000;
 }
 
-// 規格 §4.3 預設 prompt 樣板
-// 測試期簡化版：只讀根目錄、不改檔案；不帶 repo=/branch=（cwd 已是該 repo，
-// 實測 pi 會把那串尾巴當成待查證問題，多跑好幾輪工具），並要求直接回答。
+// 規格 §4.3 預設 prompt 樣板（正式優化用：分析品質並執行安全的優化）。
+// {repoPath} / {branch} 由呼叫方（routes/repos.ts）代入；prompt 經 stdin 傳遞，
+// 故樣板內換行安全。
 export const DEFAULT_PROMPT_TEMPLATE =
-  '用繁體中文回覆「OK」，並列出此 repo 根目錄前 10 個檔名，不修改任何檔案，直接回答，不需查證環境。';
+  '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}';
 const jobMap = new Map<string, JobRecord>();
 const childMap = new Map<string, ChildProcess>();
 // 逾時計時器獨立存放：job 物件需保持 JSON 可序列化（API 直接回傳），不可掛 Timeout
@@ -117,12 +117,9 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     // 在無 TTY 的 job 下會無聲卡死直到逾時；使用者既已按優化即視為授權。
     // --offline：跳過啟動期網路動作（更新檢查等），實測啟動從數分鐘級波動降為秒級；
     // 模型呼叫本身仍走網路，不受影響。
-    // --thinking minimal：測試期降推理檔以求快；換回正式優化 prompt 時記得拿掉，
-    // 否則複雜重構品質會受影響。
     // prompt 走 stdin 而非 argv：Windows shell:true 經 cmd.exe 會把中文 prompt
-    // 按空白切成多段 messages（實測 pi 收到「用繁體中文回覆OK，並列出此」+「repo」…
-    // 碎片，還誤讀跑去列父目錄）；stdin 傳 UTF-8 位元組流，無 cmd 解析問題。
-    const args = ['--offline', '--print', '--approve', '--thinking', 'minimal'];
+    // 按空白切成多段 messages；stdin 傳 UTF-8 位元組流，無 cmd 解析問題。
+    const args = ['--offline', '--print', '--approve'];
     let child: ChildProcess;
     try {
       child = spawn(piPath, args, {

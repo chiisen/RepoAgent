@@ -138,7 +138,7 @@ describe('startJob with mocked spawn', () => {
     expect(mockSpawn).toHaveBeenCalledTimes(1);
     const [cmd, args, opts] = mockSpawn.mock.calls[0];
     expect(cmd).toBe('pi');
-    expect(args).toEqual(['--offline', '--print', '--approve', '--thinking', 'minimal']);
+    expect(args).toEqual(['--offline', '--print', '--approve']);
     expect(child.stdin.write).toHaveBeenCalledWith('test prompt', 'utf8');
     expect(child.stdin.end).toHaveBeenCalled();
     expect(opts).toMatchObject({
