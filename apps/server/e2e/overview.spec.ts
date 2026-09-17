@@ -16,6 +16,11 @@ test('總覽頁可開、無本頁例外', async ({ page }) => {
   await expect(page.locator('#btnScan')).toBeVisible();
   await expect(page.locator('#repoCount')).toContainText('專案');
 
+  // issue #3：WS 應連上（同埠推播通道）
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__wsOpen), { timeout: 10_000 })
+    .toBe(true);
+
   expect(pageErrors, pageErrors.join('\n')).toEqual([]);
   expect(pageConsoleErrors, pageConsoleErrors.join('\n')).toEqual([]);
 });

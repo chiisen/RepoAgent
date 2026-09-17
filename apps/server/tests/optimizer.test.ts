@@ -169,6 +169,32 @@ describe('startJob with mocked spawn', () => {
     expect(emit.mock.calls.filter(([event]) => event === 'job:log').length).toBeGreaterThanOrEqual(4);
   });
 
+  it('job:log/job:done 同步推播給 WS clients（issue #3）', async () => {
+    const sent: string[] = [];
+    const client = { readyState: 1, send: (t: string) => { sent.push(t); } };
+    emit = vi.fn();
+    initOptimizer({ emit, clients: new Set([client]) } as any, db);
+    const child = makeMockChild();
+    mockSpawn.mockReturnValue(child as any);
+    const job = createJob('/test/repo', 'prompt');
+    createdLogs.push(resolve('data', 'jobs', `${job.id}.log`));
+
+    const p = startJob(job, db);
+    child.stdout.emit('data', Buffer.from('hello ws\n'));
+    child.emit('exit', 0);
+    await p;
+
+    const msgs = sent.map((s) => JSON.parse(s));
+    expect(msgs.map((m) => m.type)).toContain('job:log');
+    expect(msgs.map((m) => m.type)).toContain('job:done');
+    const logMsg = msgs.find((m) => m.type === 'job:log');
+    expect(logMsg.jobId).toBe(job.id);
+    expect(logMsg.line).toBe('hello ws');
+    const doneMsg = msgs.find((m) => m.type === 'job:done');
+    expect(doneMsg.jobId).toBe(job.id);
+    expect(doneMsg).toHaveProperty('diff');
+  });
+
   it('非 0 退出標記 failed 且 job:done 只發送一次', async () => {
     const child = makeMockChild();
     mockSpawn.mockReturnValue(child as any);
@@ -182,6 +208,7 @@ describe('startJob with mocked spawn', () => {
     expect(job.status).toBe('failed');
     expect(job.exitCode).toBe(2);
     expect(job.finishedAt).not.toBeNull();
+    expect(job.diff).toBeNull(); // 非 0 不重掃
     expect(jobDoneCount()).toBe(1);
   });
 

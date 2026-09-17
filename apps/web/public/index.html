@@ -238,21 +238,85 @@
     };
     let jobPollTimer = null;
     let activeJobId = null;
+    let activeRefresh = null;
     function stopJobPoll() {
       if (jobPollTimer) { clearInterval(jobPollTimer); jobPollTimer = null; }
+      activeRefresh = null;
     }
+    // issue #3：WS 即時推播（規格 §4.4）；斷線自動重連，斷線期間降級每 3 秒輪詢
+    let ws = null;
+    let wsWanted = true;
+    let reconnectTimer = null;
+    window.__wsOpen = false;
+    function wsConnected() { return !!ws && ws.readyState === 1; }
+    function jobPollMs() { return wsConnected() ? 5000 : 3000; }
+    function restartJobPoll() {
+      if (jobPollTimer) { clearInterval(jobPollTimer); jobPollTimer = null; }
+      if (activeRefresh) jobPollTimer = setInterval(activeRefresh, jobPollMs());
+    }
+    function scheduleReconnect() {
+      if (!wsWanted || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => { reconnectTimer = null; connectWs(); }, 3000);
+    }
+    function connectWs() {
+      if (!wsWanted) return;
+      let proto = 'ws';
+      try { if (location.protocol === 'https:') proto = 'wss'; } catch { /* 非瀏覽器環境略過 */ }
+      try {
+        ws = new WebSocket(proto + '://' + location.host);
+      } catch { scheduleReconnect(); return; }
+      ws.onopen = () => { window.__wsOpen = true; restartJobPoll(); };
+      ws.onmessage = (ev) => {
+        let m = null;
+        try { m = JSON.parse(ev.data); } catch { return; }
+        if (!m || !m.type) return;
+        if (m.type === 'job:log') {
+          if (m.jobId === activeJobId && $('jobLog')) {
+            $('jobLog').textContent += (m.line || '') + '\n';
+          }
+        } else if (m.type === 'job:done') {
+          loadRepos().catch(() => {});
+          if (m.jobId === activeJobId) refreshNow();
+        } else if (m.type === 'scan:done') {
+          if (!scanning) {
+            toast('掃描完成：' + m.okCount + ' 成功 / ' + m.failCount + ' 失敗');
+            loadRepos().catch(() => {});
+          }
+        }
+      };
+      const down = () => { window.__wsOpen = false; ws = null; restartJobPoll(); scheduleReconnect(); };
+      ws.onclose = down;
+      ws.onerror = () => { try { ws.close(); } catch { /* 忽略 */ } };
+    }
+    function refreshNow() {
+      if (activeRefresh) activeRefresh().catch(() => {});
+    }
+    window.addEventListener('beforeunload', () => {
+      wsWanted = false;
+      try { if (ws) ws.close(); } catch { /* 忽略 */ }
+    });
+    connectWs();
     function escHtml(s) {
       return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function jobCls(st) {
       return st === 'done' ? 'job-done' : (st === 'failed' || st === 'cancelled') ? 'job-failed' : 'job-running';
     }
+    function diffHtml(df) {
+      if (!df) return '';
+      const flag = (v) => v ? '有變更' : '乾淨';
+      const short = (h) => (h || '').slice(0, 7) || '—';
+      return '狀態 ' + flag(df.before.isDirty) + '→' + flag(df.after.isDirty) +
+        '（M ' + df.before.dirtyCount + '→' + df.after.dirtyCount + '）<br>' +
+        '分支 ' + escHtml(df.before.branch || '—') + '→' + escHtml(df.after.branch || '—') + '<br>' +
+        'commit ' + escHtml(short(df.before.lastCommitHash)) + '→' + escHtml(short(df.after.lastCommitHash));
+    }
     async function openJobDrawer(repoName, jobId) {
       stopJobPoll();
       $('drawer').classList.add('open');
       $('drawer').innerHTML = '<button id="closeD">關閉</button><h2>' + escHtml(repoName) + ' 優化中</h2>' +
         '<p>job <code>' + escHtml(jobId) + '</code> <span id="jobStatus">查詢中…</span> ' +
-        '<button id="cancelJob">取消</button></p><p id="jobHeart">心跳查詢中…</p><pre id="jobLog">載入中…</pre>';
+        '<button id="cancelJob">取消</button></p><p id="jobHeart">心跳查詢中…</p><p id="jobDiff"></p><pre id="jobLog">載入中…</pre>';
       $('closeD').onclick = () => { stopJobPoll(); $('drawer').classList.remove('open'); };
       $('cancelJob').onclick = async () => {
         try { await api('/api/jobs/' + jobId, { method: 'DELETE' }); } catch (e) { toast(String(e.message || e)); }
@@ -266,6 +330,7 @@
             '</span> exit=' + escHtml(String(d.job.exitCode)) +
             ' 開始=' + escHtml(d.job.startedAt || '—') + ' 結束=' + escHtml(d.job.finishedAt || '—');
           $('jobLog').textContent = (d.logTail || []).join('\n') || '(尚無 log)';
+          $('jobDiff').innerHTML = d.job.diff ? diffHtml(d.job.diff) : '';
           const hb = d.heartbeat;
           const toMin = d.timeoutSec ? Math.round(d.timeoutSec / 60) : null;
           $('jobHeart').textContent = (hb
@@ -274,6 +339,7 @@
           if (st === 'done' || st === 'failed' || st === 'cancelled') {
             stopJobPoll();
             if (activeJobId === jobId) activeJobId = null;
+            loadRepos().catch(() => {}); // 重掃後刷新卡片牆
           }
         } catch (e) {
           $('jobStatus').textContent = '查無 job（可能已取消或 server 重啟）';
@@ -284,7 +350,8 @@
         }
       };
       await refreshJobDrawer();
-      jobPollTimer = setInterval(refreshJobDrawer, 2000);
+      activeRefresh = refreshJobDrawer;
+      restartJobPoll();
     }
     loadConfig().then(loadRepos).catch((e) => toast(e.message));
   </script>

@@ -7,6 +7,8 @@
 
 ### 新增
 
+- 優化完成自動重掃：pi exit 0 後重掃該 repo 並記錄前後 diff（dirty／branch／hash），`GET /api/jobs/:id` 與 `job:done` 事件皆帶 diff；前端 drawer 顯示差異、結束時重整卡片牆（issue #2）。
+- WS 即時推播：後端同埠建 WS server，廣播 `scan:done`／`job:log`／`job:done`（既有 emit 保留相容）；前端連線即時更新 log 與狀態、斷線自動重連＋降級輪詢（issue #3）。
 - job log 輪轉：`data/jobs` 保留最新 50 個 `.log`（mtime 排序，超過刪檔不刪 DB 紀錄，失敗為 best-effort 不影響主流程）；optimize 建 job 與 pull 寫 log 共用同一上限（issue #4 收尾）。
 
 ## [0.1.0] - 2026-09-17

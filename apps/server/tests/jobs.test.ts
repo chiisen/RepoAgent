@@ -39,7 +39,7 @@ function pushMockChild() {
 }
 
 let root = '';
-const port = 34568;
+let port = 0;
 let server: ReturnType<express.Application['listen']>;
 let db: ReturnType<typeof openDb>;
 let repoId = '';
@@ -73,11 +73,13 @@ beforeAll(async () => {
   app.use(express.json());
   app.use('/api', createReposRouter(db));
   app.use('/api', createJobsRouter());
-  server = app.listen(port);
+  server = app.listen(0);
+  await new Promise<void>((resolve) => server.on('listening', () => resolve()));
+  port = (server.address() as { port: number }).port;
 });
 
-afterAll(() => {
-  server.close();
+afterAll(async () => {
+  await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -127,6 +129,21 @@ describe('POST /api/repos/:id/optimize', () => {
     const got = await api(`/api/jobs/${body.job.id}`);
     expect(got.body.job.status).toBe('done');
     expect(got.body.logTail).toContain('opt line');
+
+    // issue #2：exit 0 自動重掃並回前後 diff（repo a 掃描時即 dirty，mock pi 未改檔）；
+    // 重掃非同步，輪詢等待 diff 落定
+    let diff: any = null;
+    for (let i = 0; i < 100 && !diff; i++) {
+      const g = await api(`/api/jobs/${body.job.id}`);
+      diff = g.body.job.diff;
+      if (!diff) await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(diff).toMatchObject({
+      before: { isDirty: 1, dirtyCount: 1 },
+      after: { isDirty: 1, dirtyCount: 1 },
+    });
+    expect(diff.after.lastCommitHash).toMatch(/^[0-9a-f]{40}$/);
+    expect(diff.after.lastCommitHash).toBe(diff.before.lastCommitHash);
   });
 
   it('自訂 prompt 透傳給 job', async () => {

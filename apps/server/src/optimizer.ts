@@ -4,10 +4,25 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Server } from 'ws';
+import { WebSocket } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { configStore } from './config.js';
+import { refreshRepo } from './scanner.js';
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+
+export interface JobDiffState {
+  isDirty: number;
+  dirtyCount: number;
+  branch: string;
+  lastCommitHash: string;
+}
+
+// issue #2：優化成功重掃後的前後差異（dirty／branch／hash）
+export interface JobDiff {
+  before: JobDiffState;
+  after: JobDiffState;
+}
 
 export interface JobRecord {
   id: string;
@@ -18,6 +33,7 @@ export interface JobRecord {
   exitCode: number | null;
   startedAt: string;
   finishedAt: string | null;
+  diff: JobDiff | null;
 }
 
 const JOB_TIMEOUT_MS = 1_800_000; // 預設 30 分鐘；實際以 configStore.timeout（秒）為準
@@ -86,6 +102,36 @@ export { jobMap, childMap, JOB_TIMEOUT_MS, KILL_GRACE_MS };
 let wsInstance: Server | null = null;
 let dbInstance: DatabaseSync | null = null;
 
+// issue #3：真正推播給瀏覽器。注意 ws Server 的 .emit() 只觸發 server 端監聽器，
+// 不會送到 clients，故在此另行遍歷發送；既有 emit 保留（測試與相容）。
+function broadcast(msg: object): void {
+  // clients 可能不存在（測試用 {emit} 假物件）；缺席即略過
+  const clients = (wsInstance as unknown as { clients?: Iterable<unknown> } | null)?.clients;
+  if (!clients) return;
+  let text: string;
+  try {
+    text = JSON.stringify(msg);
+  } catch {
+    return;
+  }
+  for (const client of clients) {
+    try {
+      const c = client as { readyState: number; send: (data: string) => void };
+      if (c.readyState === WebSocket.OPEN) c.send(text);
+    } catch { /* 單一 client 失敗不影響其他 */ }
+  }
+}
+
+export function notifyEvent(
+  type: 'job:log' | 'job:done' | 'scan:done',
+  payload: Record<string, unknown>,
+): void {
+  try {
+    wsInstance?.emit(type, payload);
+  } catch { /* 無監聽器時忽略 */ }
+  broadcast({ type, ...payload });
+}
+
 export function initOptimizer(io: Server, db: DatabaseSync): void {
   wsInstance = io;
   dbInstance = db;
@@ -125,6 +171,8 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
     const prompt = job.prompt || '';
     // job.repoId 實為 repo 絕對路徑（呼叫方約定）；resolve 保證雙平台絕對路徑
     const repoPath = path.resolve(job.repoId);
+    // issue #2：重掃前快照（DB 現存列；pi 跑完成功才重掃比對）
+    const before = readRepoSnapshot(db, repoPath);
 
     job.status = 'running';
     job.startedAt = new Date().toISOString();
@@ -138,7 +186,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       job.status = 'failed';
       job.exitCode = -1;
       job.finishedAt = new Date().toISOString();
-      wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
+      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
       done();
       return;
     }
@@ -167,7 +215,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       job.status = 'failed';
       job.exitCode = -1;
       job.finishedAt = new Date().toISOString();
-      wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
+      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
       done();
       return;
     }
@@ -192,7 +240,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       for (const line of lines) {
         if (line.trim()) {
           fs.appendFileSync(job.logPath!, line + '\n');
-          wsInstance?.emit('job:log', { jobId: job.id, line });
+          notifyEvent('job:log', { jobId: job.id, line });
         }
       }
     });
@@ -203,12 +251,12 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       for (const line of lines) {
         if (line.trim()) {
           fs.appendFileSync(job.logPath!, line + '\n');
-          wsInstance?.emit('job:log', { jobId: job.id, line: line.substring(0, 200) });
+          notifyEvent('job:log', { jobId: job.id, line: line.substring(0, 200) });
         }
       }
     });
 
-    child.on('exit', (code) => {
+    child.on('exit', async (code) => {
       clearJobTimeout(job.id);
       childMap.delete(job.id);
       // 無結尾換行的殘行（pi 異常退出時常見）直接落檔，避免最後訊息遺失
@@ -221,7 +269,17 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       job.status = code === 0 ? 'done' : 'failed';
       job.finishedAt = new Date().toISOString();
       try { fs.appendFileSync(job.logPath!, `$ exit: code=${code}\n`); } catch { /* 忽略 */ }
-      wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
+      if (code === 0) {
+        // issue #2：成功才自動重掃該 repo 並記錄前後 diff；
+        // 重掃失敗不翻轉 job 狀態，diff 留 null
+        try {
+          await refreshRepo(db, repoPath);
+          job.diff = { before, after: readRepoSnapshot(db, repoPath) };
+        } catch {
+          job.diff = null;
+        }
+      }
+      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
       done();
     });
 
@@ -237,7 +295,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       try {
         fs.appendFileSync(job.logPath!, `spawn failed [${e.code ?? 'UNKNOWN'}]: check pi path / PI_PATH\n`);
       } catch { /* log 寫失敗不影響狀態 */ }
-      wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
+      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
       done();
     });
 
@@ -249,7 +307,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       job.status = 'failed';
       job.finishedAt = new Date().toISOString();
       try { fs.appendFileSync(job.logPath!, `$ timeout: exceeded ${Math.round(getJobTimeoutMs() / 1000)}s\n`); } catch { /* 忽略 */ }
-      wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
+      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
       done();
     }, getJobTimeoutMs()));
   });
@@ -267,9 +325,24 @@ export function createJob(repoId: string, prompt: string): JobRecord {
     exitCode: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
+    diff: null,
   };
   jobMap.set(jobId, job);
   return job;
+}
+
+// issue #2：讀 DB 現存列做重掃前快照；列不存在或讀失敗回空快照，不影響主流程
+function readRepoSnapshot(db: DatabaseSync, repoPath: string): JobDiffState {
+  const empty: JobDiffState = { isDirty: 0, dirtyCount: 0, branch: '', lastCommitHash: '' };
+  try {
+    const row = db.prepare(
+      'SELECT isDirty, dirtyCount, branch, lastCommitHash FROM repos WHERE path=?',
+    ).get(repoPath) as JobDiffState | undefined;
+    if (!row) return empty;
+    return { isDirty: row.isDirty, dirtyCount: row.dirtyCount, branch: row.branch, lastCommitHash: row.lastCommitHash };
+  } catch {
+    return empty;
+  }
 }
 
 // Cancel a job：先殺子進程（SIGTERM→10s→SIGKILL，雙平台），再標 cancelled 並移除
@@ -284,7 +357,7 @@ export function cancelJob(jobId: string): void {
   clearJobTimeout(jobId);
   job.status = 'cancelled';
   job.finishedAt = new Date().toISOString();
-  wsInstance?.emit('job:done', { jobId: job.id, repoId: job.repoId });
+  notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
   jobMap.delete(jobId);
 }
 
