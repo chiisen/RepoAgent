@@ -18,6 +18,7 @@ export interface ConfigStore {
   piConcurrency: number;
   scanRecursive: boolean;
   scanDepth: number;
+  skipDirs: string[];
 }
 
 export const defaults = {
@@ -37,6 +38,7 @@ export const defaults = {
   piConcurrency: 2,
   scanRecursive: false,
   scanDepth: 3,
+  skipDirs: ['node_modules', '.superpowers'],
 };
 
 let config: ConfigStore = { ...defaults };
@@ -80,6 +82,24 @@ export function parsePromptTemplates(raw: unknown): PromptTemplate[] {
     if (ids.has(id)) throw new Error('duplicate prompt id');
     ids.add(id);
     out.push({ id, name, body });
+  }
+  return out;
+}
+
+export function parseSkipDirs(raw: unknown): string[] {
+  if (!Array.isArray(raw)) throw new Error('skipDirs must be an array');
+  if (raw.length > 40) throw new Error('skipDirs at most 40');
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const name = String(item ?? '').trim().replace(/^[/\\]+|[/\\]+$/g, '');
+    if (!name) continue;
+    if (/[/\\]/.test(name) || name === '.' || name === '..') throw new Error('skipDirs item must be a directory name, not a path');
+    if (name.length > 64) throw new Error('skipDirs item too long');
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
   }
   return out;
 }

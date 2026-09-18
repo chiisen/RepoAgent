@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { configStore, saveConfig, normalizeRootDir, ensurePromptTemplates, parsePromptTemplates } from '../config.js';
+import { configStore, saveConfig, normalizeRootDir, ensurePromptTemplates, parsePromptTemplates, parseSkipDirs } from '../config.js';
 
 export function createConfigRouter() {
   const router = Router();
@@ -18,11 +18,12 @@ export function createConfigRouter() {
       piConcurrency: configStore.piConcurrency,
       scanRecursive: configStore.scanRecursive === true,
       scanDepth: configStore.scanDepth,
+      skipDirs: Array.isArray(configStore.skipDirs) ? configStore.skipDirs : [],
     });
   });
 
   router.put('/', (req: Request, res: Response) => {
-    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency, scanRecursive, scanDepth } = req.body;
+    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency, scanRecursive, scanDepth, skipDirs } = req.body;
 
     if (rootDir !== undefined) {
       try {
@@ -85,6 +86,13 @@ export function createConfigRouter() {
       }
       configStore.scanDepth = n;
     }
+    if (skipDirs !== undefined) {
+      try {
+        configStore.skipDirs = parseSkipDirs(skipDirs);
+      } catch (e) {
+        return res.status(400).json({ error: String((e as Error).message || e) });
+      }
+    }
 
     saveConfig();
     res.json({
@@ -97,6 +105,7 @@ export function createConfigRouter() {
       piConcurrency: configStore.piConcurrency,
       scanRecursive: configStore.scanRecursive === true,
       scanDepth: configStore.scanDepth,
+      skipDirs: Array.isArray(configStore.skipDirs) ? configStore.skipDirs : [],
     });
   });
 

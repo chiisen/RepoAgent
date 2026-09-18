@@ -25,7 +25,12 @@ function setScanProgress(patch: Partial<ScanProgress>) {
   scanProgress = { ...scanProgress, ...patch };
 }
 
-const SKIP_DIRS = new Set(['node_modules', '.superpowers', '.git']);
+const ALWAYS_SKIP = new Set(['.git']);
+
+export function getSkipDirs(): Set<string> {
+  const extra = Array.isArray(configStore.skipDirs) ? configStore.skipDirs : ['node_modules', '.superpowers'];
+  return new Set([...ALWAYS_SKIP, ...extra.map((s) => String(s).toLowerCase())]);
+}
 const GIT_TIMEOUT_MS = 12_000;
 const SCAN_CONCURRENCY = 6;
 const MAX_SCAN_DEPTH = 5;
@@ -56,7 +61,7 @@ export function listGitRepos(
       return;
     }
     for (const entry of entries) {
-      if (!entry.isDirectory() || SKIP_DIRS.has(entry.name.toLowerCase())) continue;
+      if (!entry.isDirectory() || getSkipDirs().has(entry.name.toLowerCase())) continue;
       const p = join(dir, entry.name);
       const name = rel ? rel + '/' + entry.name : entry.name;
       if (existsSync(join(p, '.git'))) {

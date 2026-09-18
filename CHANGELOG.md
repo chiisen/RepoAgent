@@ -7,6 +7,7 @@
 
 ### 新增
 
+- 掃描黑名單可編輯：`skipDirs` 持久化；`.git` 仍強制略過（issue #13）。
 - 儀表板視覺小修：8px 間距、卡片／頂欄對比、按鈕 hover／focus、窄螢幕 rootDir 全寬；不換路由與狀態庫（issue #17）。
 - 可選遞迴掃描：`scanRecursive`（預設 false）與 `scanDepth` 1–5；略過 `node_modules` 等，找到 `.git` 不再往內走（issue #12）。
 - 多 prompt 樣板：`promptTemplates`／`activePromptId`；optimize 可帶 `promptId`；設定可增刪，頂部可選本次樣板（issue #11）。

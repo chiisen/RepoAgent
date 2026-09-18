@@ -31,6 +31,7 @@ export type Config = {
   piConcurrency: number;
   scanRecursive?: boolean;
   scanDepth?: number;
+  skipDirs?: string[];
 };
 
 export type Job = {

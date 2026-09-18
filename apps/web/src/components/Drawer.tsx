@@ -183,6 +183,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
   const [piConcurrency, setPiConcurrency] = useState('2');
   const [scanRecursive, setScanRecursive] = useState(false);
   const [scanDepth, setScanDepth] = useState('3');
+  const [skipDirsText, setSkipDirsText] = useState('node_modules\n.superpowers');
 
   useEffect(() => {
     api<Config>('/api/config')
@@ -200,6 +201,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
         setPiConcurrency(String(c.piConcurrency ?? 2));
         setScanRecursive(c.scanRecursive === true);
         setScanDepth(String(c.scanDepth ?? 3));
+        setSkipDirsText((c.skipDirs ?? ['node_modules', '.superpowers']).join('\n'));
       })
       .catch((e) => toast(String(e.message || e)));
   }, [toast]);
@@ -219,6 +221,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           piConcurrency: Number(piConcurrency),
           scanRecursive,
           scanDepth: Number(scanDepth),
+          skipDirs: skipDirsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
         }),
       });
       toast('設定已儲存');
@@ -346,6 +349,10 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           disabled={!scanRecursive}
           onChange={(e) => setScanDepth(e.target.value)}
         />
+      </div>
+      <div className="field">
+        <label htmlFor="cfgSkipDirs">掃描黑名單（每行一個目錄名，不含路徑）</label>
+        <textarea id="cfgSkipDirs" value={skipDirsText} onChange={(e) => setSkipDirsText(e.target.value)} />
       </div>
       <button id="btnSaveConfig" type="button" onClick={save}>
         儲存
