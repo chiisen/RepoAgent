@@ -10,6 +10,14 @@ export function sliceTime(iso?: string | null): string {
   return iso ? iso.slice(0, 16).replace('T', ' ') : '';
 }
 
+export function trackingLine(r: { ahead?: number | null; behind?: number | null }): string {
+  if (r.ahead == null && r.behind == null) return '無 upstream';
+  const a = r.ahead ?? 0;
+  const b = r.behind ?? 0;
+  if (a === 0 && b === 0) return '與遠端同步';
+  return '領先 ' + a + '／落後 ' + b;
+}
+
 export function sliceMsg(s: string | null | undefined, n: number): string {
   return (s || '').slice(0, n);
 }

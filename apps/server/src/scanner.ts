@@ -67,6 +67,9 @@ export async function refreshRepo(db: DatabaseSync, repoPath: string, lastError 
       lastError,
       lastPullAt: '',
       lastPullMsg: '',
+      remoteUrl: info.remoteUrl,
+      ahead: info.ahead,
+      behind: info.behind,
     });
   } catch (e) {
     const id = await repoId(db, repoPath);
@@ -86,15 +89,27 @@ async function inspectRepo(repoPath: string): Promise<{
   lastCommitHash: string;
   lastCommitTime: string;
   lastCommitMsg: string;
+  remoteUrl: string;
+  ahead: number | null;
+  behind: number | null;
 }> {
   const git = gitClient(repoPath);
-  const [branchRaw, porcelain, logOut] = await Promise.all([
+  const [branchRaw, porcelain, logOut, remoteUrl, countsRaw] = await Promise.all([
     git.raw(['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => ''),
     git.raw(['status', '--porcelain=v1']),
     git.raw(['log', '-1', '--format=%H%x09%aI%x09%s']).catch(() => ''),
+    git.raw(['remote', 'get-url', 'origin']).catch(async () => {
+      const names = (await git.raw(['remote']).catch(() => '')).trim().split(/\r?\n/).filter(Boolean);
+      if (!names[0]) return '';
+      return git.raw(['remote', 'get-url', names[0]]).catch(() => '');
+    }),
+    git.raw(['rev-list', '--left-right', '--count', '@{upstream}...HEAD']).catch(() => ''),
   ]);
   const dirtyLines = porcelain.split(/\r?\n/).filter((l) => l.length > 0);
   const [hash = '', time = '', ...msg] = logOut.trim().split('\t');
+  const parts = countsRaw.trim().split(/\s+/);
+  const behind = parts.length >= 2 && parts[0] !== '' ? Number(parts[0]) : null;
+  const ahead = parts.length >= 2 && parts[1] !== '' ? Number(parts[1]) : null;
   return {
     branch: branchRaw.trim(),
     isDirty: dirtyLines.length > 0 ? 1 : 0,
@@ -102,6 +117,9 @@ async function inspectRepo(repoPath: string): Promise<{
     lastCommitHash: hash,
     lastCommitTime: time,
     lastCommitMsg: msg.join('\t').trim(),
+    remoteUrl: String(remoteUrl).trim(),
+    ahead: ahead !== null && Number.isFinite(ahead) ? ahead : null,
+    behind: behind !== null && Number.isFinite(behind) ? behind : null,
   };
 }
 
@@ -171,6 +189,9 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
       lastError: '',
       lastPullAt: '',
       lastPullMsg: '',
+      remoteUrl: item.info.remoteUrl,
+      ahead: item.info.ahead,
+      behind: item.info.behind,
     });
     okCount++;
   }
@@ -201,8 +222,8 @@ async function repoId(db: DatabaseSync, path: string): Promise<string> {
 function upsertRepo(db: DatabaseSync, row: Repo) {
   const has = db.prepare('SELECT 1 FROM repos WHERE path=?').get(row.path);
   if (has) {
-    db.prepare('UPDATE repos SET name=?, branch=?, isDirty=?, dirtyCount=?, lastCommitHash=?, lastCommitTime=?, lastCommitMsg=?, lastScannedAt=?, lastError=? WHERE path=?').run(row.name, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.path);
+    db.prepare('UPDATE repos SET name=?, branch=?, isDirty=?, dirtyCount=?, lastCommitHash=?, lastCommitTime=?, lastCommitMsg=?, lastScannedAt=?, lastError=?, remoteUrl=?, ahead=?, behind=? WHERE path=?').run(row.name, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, row.path);
   } else {
-    db.prepare('INSERT INTO repos(id, name, path, branch, isDirty, dirtyCount, lastCommitHash, lastCommitTime, lastCommitMsg, lastScannedAt, lastError) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(row.id, row.name, row.path, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError);
+    db.prepare('INSERT INTO repos(id, name, path, branch, isDirty, dirtyCount, lastCommitHash, lastCommitTime, lastCommitMsg, lastScannedAt, lastError, remoteUrl, ahead, behind) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(row.id, row.name, row.path, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind);
   }
 }

@@ -17,6 +17,9 @@ export type Repo = {
   lastError: string;
   lastPullAt: string;
   lastPullMsg: string;
+  remoteUrl: string;
+  ahead: number | null;
+  behind: number | null;
 };
 
 export type Job = {
@@ -40,7 +43,7 @@ export type Scan = {
   failCount: number;
 };
 
-const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS repos(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, branch TEXT NOT NULL DEFAULT '', isDirty INTEGER NOT NULL DEFAULT 0, dirtyCount INTEGER NOT NULL DEFAULT 0, lastCommitHash TEXT NOT NULL DEFAULT '', lastCommitTime TEXT NOT NULL DEFAULT '', lastCommitMsg TEXT NOT NULL DEFAULT '', lastScannedAt TEXT NOT NULL DEFAULT '', lastError TEXT NOT NULL DEFAULT '', lastPullAt TEXT NOT NULL DEFAULT '', lastPullMsg TEXT NOT NULL DEFAULT '');
+const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS repos(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, branch TEXT NOT NULL DEFAULT '', isDirty INTEGER NOT NULL DEFAULT 0, dirtyCount INTEGER NOT NULL DEFAULT 0, lastCommitHash TEXT NOT NULL DEFAULT '', lastCommitTime TEXT NOT NULL DEFAULT '', lastCommitMsg TEXT NOT NULL DEFAULT '', lastScannedAt TEXT NOT NULL DEFAULT '', lastError TEXT NOT NULL DEFAULT '', lastPullAt TEXT NOT NULL DEFAULT '', lastPullMsg TEXT NOT NULL DEFAULT '', remoteUrl TEXT NOT NULL DEFAULT '', ahead INTEGER, behind INTEGER);
 CREATE TABLE IF NOT EXISTS scans(id INTEGER PRIMARY KEY AUTOINCREMENT, rootDir TEXT NOT NULL, startedAt TEXT NOT NULL, finishedAt TEXT NOT NULL DEFAULT '', total INTEGER NOT NULL DEFAULT 0, okCount INTEGER NOT NULL DEFAULT 0, failCount INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, repoId TEXT NOT NULL, prompt TEXT NOT NULL, status TEXT NOT NULL, logPath TEXT NOT NULL DEFAULT '', exitCode INTEGER, startedAt TEXT NOT NULL, finishedAt TEXT);`;
 
@@ -61,4 +64,7 @@ function migrateRepos(db: DatabaseSync) {
   const names = new Set(cols.map((c) => c.name));
   if (!names.has('lastPullAt')) db.exec("ALTER TABLE repos ADD COLUMN lastPullAt TEXT NOT NULL DEFAULT ''");
   if (!names.has('lastPullMsg')) db.exec("ALTER TABLE repos ADD COLUMN lastPullMsg TEXT NOT NULL DEFAULT ''");
+  if (!names.has('remoteUrl')) db.exec("ALTER TABLE repos ADD COLUMN remoteUrl TEXT NOT NULL DEFAULT ''");
+  if (!names.has('ahead')) db.exec('ALTER TABLE repos ADD COLUMN ahead INTEGER');
+  if (!names.has('behind')) db.exec('ALTER TABLE repos ADD COLUMN behind INTEGER');
 }

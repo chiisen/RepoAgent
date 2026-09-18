@@ -14,6 +14,9 @@ export type Repo = {
   lastError?: string | null;
   lastPullAt?: string | null;
   lastPullMsg?: string | null;
+  remoteUrl?: string | null;
+  ahead?: number | null;
+  behind?: number | null;
 };
 
 export type Config = {

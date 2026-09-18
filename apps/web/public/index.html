@@ -63,6 +63,12 @@
     const $ = (id) => document.getElementById(id);
     const toast = (m) => { const t = $('toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 4000); };
     const lamp = (r) => r.lastError ? ['lamp-fail', '失敗'] : r.isDirty ? ['lamp-dirty', '有變更'] : ['lamp-clean', '乾淨'];
+    const tracking = (r) => {
+      if (r.ahead == null && r.behind == null) return '無 upstream';
+      const a = r.ahead ?? 0, b = r.behind ?? 0;
+      if (a === 0 && b === 0) return '與遠端同步';
+      return '領先 ' + a + '／落後 ' + b;
+    };
     async function api(path, opt) {
       const res = await fetch(path, opt);
       const body = await res.json().catch(() => ({}));
@@ -95,6 +101,8 @@
         return `<article class="card" data-id="${r.id}">
           <div class="title"><span>${r.name}</span><span class="${cls}">${label}</span></div>
           <div class="meta">分支 ${r.branch || '—'}<br>
+            遠端 ${(r.remoteUrl || '').slice(0, 80) || '—'}<br>
+            追蹤 ${tracking(r)}<br>
             狀態 ${r.isDirty ? '變更 ' + r.dirtyCount : '乾淨'}<br>
             最後 commit ${t} ${msg}<br>
             上次掃描 ${r.lastScannedAt || '—'}<br>

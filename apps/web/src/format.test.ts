@@ -7,7 +7,21 @@ import {
   scanCaption,
   sliceMsg,
   sliceTime,
+  trackingLine,
 } from './format';
+
+describe('trackingLine', () => {
+  it('無 upstream', () => {
+    expect(trackingLine({})).toBe('無 upstream');
+    expect(trackingLine({ ahead: null, behind: null })).toBe('無 upstream');
+  });
+  it('同步', () => {
+    expect(trackingLine({ ahead: 0, behind: 0 })).toBe('與遠端同步');
+  });
+  it('領先與落後', () => {
+    expect(trackingLine({ ahead: 2, behind: 1 })).toBe('領先 2／落後 1');
+  });
+});
 
 describe('lampOf', () => {
   it('失敗優先於 dirty', () => {

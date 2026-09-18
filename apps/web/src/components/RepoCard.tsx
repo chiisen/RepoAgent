@@ -1,4 +1,4 @@
-import { lampOf, sliceMsg, sliceTime } from '../format';
+import { lampOf, sliceMsg, sliceTime, trackingLine } from '../format';
 import type { Repo } from '../types';
 
 type Props = {
@@ -23,6 +23,10 @@ export function RepoCard({ repo: r, busy, onDetail, onPull, onOpt }: Props) {
       </div>
       <div className="meta">
         分支 {r.branch || '—'}
+        <br />
+        遠端 {sliceMsg(r.remoteUrl, 80) || '—'}
+        <br />
+        追蹤 {trackingLine(r)}
         <br />
         狀態 {r.isDirty ? '變更 ' + r.dirtyCount : '乾淨'}
         <br />

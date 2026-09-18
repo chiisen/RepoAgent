@@ -7,6 +7,7 @@
 
 ### 新增
 
+- 掃描寫入 `remoteUrl`／`ahead`／`behind`（對照本地 tracking ref，不 fetch）；卡片顯示遠端與領先／落後；無 upstream 顯示「無 upstream」（issue #9）。
 - `tests/scan-optimize-rescan.test.ts`：API 全鏈 scan → optimize（mock pi exit 0）→ 自動重掃，斷言 job.diff 與 `GET /api/repos`（issue #7）。
 
 ### 變更
