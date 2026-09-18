@@ -25,7 +25,8 @@ export function useWs(onMsg: (m: WsMsg) => void) {
       if (!wanted.current) return;
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       try {
-        ws = new WebSocket(proto + '://' + location.host);
+        const host = import.meta.env.DEV ? location.hostname + ':3000' : location.host;
+        ws = new WebSocket(proto + '://' + host);
       } catch {
         schedule();
         return;

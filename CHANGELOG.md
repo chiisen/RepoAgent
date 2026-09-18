@@ -12,6 +12,7 @@
 
 ### 變更
 
+- 根目錄 `npm run dev`／`build`／`start`／`test`：一鍵起 Vite+Express（issue #15）；Vite 開發時 WS 連 3000。
 - README 對齊 0.2.0：正式 UI 為有 `dist` 時送 React、否則 fallback；拿掉「dist 尚未建置」與過時的 `/config`、測試筆數、目錄結構（issue #16）。
 
 ## [0.2.0] - 2026-09-18

@@ -4,5 +4,14 @@
   "version": "0.2.0",
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c cyan,magenta \"npm run start -w @repoagent/server\" \"npm run dev -w @repoagent/web\"",
+    "build": "npm run build -w @repoagent/web",
+    "start": "npm run start -w @repoagent/server",
+    "test": "npm test -w @repoagent/server && npm test -w @repoagent/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
 }

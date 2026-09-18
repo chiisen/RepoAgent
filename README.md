@@ -15,25 +15,21 @@
 
 從**專案根目錄**執行。
 
-### 1. 建置正式 UI（建議）
-
 ```powershell
-cd apps/web
 npm install
-npm run build
+npm run dev
 ```
 
-`dist/` 不納版控，本機或部署都要自行建置。略過此步時，`GET /` 仍可用 fallback。
+開發用 Vite：`http://localhost:5173`（`/api` 與 WebSocket 連後端 3000）。
 
-### 2. 安裝並啟動後端
+單 port（正式 UI 由 Express 送 `dist`）：
 
 ```powershell
-cd apps/server
-npm install
+npm run build
 npm start
 ```
 
-瀏覽器開 `http://localhost:3000`。不要在 repo 根目錄跑 `tsx src/index.ts`。
+開 `http://localhost:3000`。`dist/` 不納版控；未 build 時仍可用 `public` fallback。不要在根目錄直接跑 `tsx src/index.ts`。
 
 ---
 

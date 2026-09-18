@@ -13,12 +13,11 @@
 ## 啟動（專案根目錄）
 
 ```powershell
-cd apps/server
 npm install
-npm start
+npm run dev
 ```
 
-瀏覽器：`http://localhost:3000`。不要在 repo 根目錄跑 `tsx src/index.ts`。
+開發：瀏覽器開 `http://localhost:5173`（Vite；`/api` 與 WS 連 3000）。單 port：`npm run build` 後 `npm start`，開 `http://localhost:3000`。不要在根目錄直接跑 `tsx src/index.ts`。
 
 ## 實作約束
 
