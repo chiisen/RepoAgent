@@ -8,7 +8,7 @@
 
 - 規格：`docs/superpowers/specs/2026-09-15-repoagent-design.md`
 - 技術：Node 22+、Express、`node:sqlite`、單一 port（預設 3000）
-- 佈局：`apps/server` 後端；`apps/web/public` fallback UI（Vite React `dist` 尚未為預設）
+- 佈局：`apps/server` 後端；有 `apps/web/dist/index.html` 時優先送 Vite React，否則 `apps/web/public` fallback
 
 ## 啟動（專案根目錄）
 

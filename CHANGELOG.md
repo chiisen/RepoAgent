@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### 變更
+
+- Agent 指引（`AGENTS.md`／`CLAUDE.md`／`GEMINI.md`）：正式 UI 改為有 `apps/web/dist/index.html` 時優先送 Vite React，否則 `public` fallback（不再寫「dist 尚未為預設」）。
+
 ### 新增
 
 - Vite React 正式前端（issue #6）：`apps/web` 建置 `dist` 後後端優先送 React 儀表板；功能對等 fallback（掃描／搜尋篩選排序／卡片牆／詳情／pull／優化 WS 監控），並補設定抽屜四欄位；無 `dist` 時仍降級 `public` fallback。
