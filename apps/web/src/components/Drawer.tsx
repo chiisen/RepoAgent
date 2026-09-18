@@ -15,7 +15,7 @@ type Props = {
   toast: (m: string) => void;
   wsOpen: boolean;
   extraLog?: string;
-  onJobEnded: (jobId?: string) => void;
+  onJobEnded: (jobId?: string, info?: { status?: string; repoId?: string; repoName?: string }) => void;
 };
 
 export function Drawer({ mode, onClose, toast, wsOpen, extraLog, onJobEnded }: Props) {
@@ -76,7 +76,7 @@ function JobBody({
   toast: (m: string) => void;
   wsOpen: boolean;
   extraLog?: string;
-  onJobEnded: (jobId?: string) => void;
+  onJobEnded: (jobId?: string, info?: { status?: string; repoId?: string; repoName?: string }) => void;
 }) {
   const [d, setD] = useState<JobDetail | null>(null);
   const [missing, setMissing] = useState(false);
@@ -85,10 +85,10 @@ function JobBody({
   useEffect(() => {
     let stop = false;
     endedRef.current = false;
-    const finish = () => {
-      if (endedRef.current) return;
+    const markEnded = (): boolean => {
+      if (endedRef.current) return false;
       endedRef.current = true;
-      onJobEnded(jobId);
+      return true;
     };
     const refresh = async () => {
       try {
@@ -97,12 +97,12 @@ function JobBody({
         setD(next);
         const st = next.job.status;
         if (st === 'done' || st === 'failed' || st === 'cancelled') {
-          finish();
+          if (markEnded()) onJobEnded(jobId, { status: st, repoName });
         }
       } catch {
         if (stop) return;
         setMissing(true);
-        finish();
+        if (markEnded()) onJobEnded(jobId);
       }
     };
     void refresh();
@@ -112,7 +112,7 @@ function JobBody({
       stop = true;
       clearInterval(t);
     };
-  }, [jobId, wsOpen, onJobEnded]);
+  }, [jobId, wsOpen, onJobEnded, repoName]);
 
   const cancel = async () => {
     try {

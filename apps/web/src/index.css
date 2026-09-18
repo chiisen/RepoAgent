@@ -62,8 +62,25 @@ textarea:focus-visible {
   max-width: 420px;
   z-index: 20;
   border: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 700;
 }
 #toast.show { display: block; }
+#toast.toast-ok {
+  color: #7dffb0;
+  background: #12351f;
+  border-color: #3ddc84;
+}
+#toast.toast-fail {
+  color: #ff9b9b;
+  background: #3a1414;
+  border-color: #ff7a7a;
+}
+#toast.toast-warn {
+  color: #ffe08a;
+  background: #3a2e10;
+  border-color: #e8c04a;
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -120,9 +137,9 @@ pre {
   border-radius: 8px;
   border: 1px solid var(--border);
 }
-.job-running { color: #e8c04a; }
-.job-done { color: #3ddc84; }
-.job-failed { color: #ff7a7a; }
+.job-running { color: #ffd56a; font-weight: 700; }
+.job-done { color: #7dffb0; font-weight: 700; }
+.job-failed { color: #ff9b9b; font-weight: 700; }
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 .spin {
   display: inline-block;

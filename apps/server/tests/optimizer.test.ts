@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync,
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openDb } from '../src/db.js';
-import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, listActiveJobs, getPiConcurrency, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, getJobTimeoutMs, jobMap, childMap, pruneJobLogs, MAX_JOB_LOGS } from '../src/optimizer.js';
+import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, listActiveJobs, getPiConcurrency, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, HEARTBEAT_MS, getJobTimeoutMs, jobMap, childMap, pruneJobLogs, MAX_JOB_LOGS } from '../src/optimizer.js';
 import { configStore } from '../src/config.js';
 
 vi.mock('node:child_process', () => ({
@@ -210,6 +210,7 @@ describe('startJob with mocked spawn', () => {
     expect(logMsg.line).toBe('hello ws');
     const doneMsg = msgs.find((m) => m.type === 'job:done');
     expect(doneMsg.jobId).toBe(job.id);
+    expect(doneMsg.status).toBe('done');
     expect(doneMsg).toHaveProperty('diff');
   });
 
@@ -304,6 +305,48 @@ describe('startJob with mocked spawn', () => {
       'taskkill', ['/PID', '12345', '/T', '/F'], expect.anything(), expect.anything(),
     );
   });
+  it('心跳：無輸出時仍寫 still running 並推 job:log', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = makeMockChild();
+      mockSpawn.mockReturnValue(child as any);
+      const job = createJob('/test/repo', 'prompt');
+      createdLogs.push(resolve('data', 'jobs', `${job.id}.log`));
+      const p = startJob(job, db);
+      await vi.advanceTimersByTimeAsync(HEARTBEAT_MS);
+      const log = readFileSync(job.logPath, 'utf8');
+      expect(log).toMatch(/\$ still running \d+s/);
+      expect(emit.mock.calls.some(([e, payload]) => e === 'job:log' && String(payload?.line).startsWith('$ still running'))).toBe(true);
+      child.emit('exit', 0);
+      await p;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('殘行沖刷：無換行的 stdout 在心跳時寫入 partial', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = makeMockChild();
+      mockSpawn.mockReturnValue(child as any);
+      const job = createJob('/test/repo', 'prompt');
+      createdLogs.push(resolve('data', 'jobs', `${job.id}.log`));
+      const p = startJob(job, db);
+      child.stdout.emit('data', Buffer.from('<think>long thought without newline'));
+      await vi.advanceTimersByTimeAsync(HEARTBEAT_MS);
+      const log = readFileSync(job.logPath, 'utf8');
+      expect(log).toContain('$ partial stdout:');
+      expect(log).toContain('long thought without newline');
+      expect(emit.mock.calls.some(([e, payload]) => e === 'job:log' && String(payload?.line).includes('long thought'))).toBe(true);
+      child.emit('exit', 0);
+      await p;
+      const finalLog = readFileSync(job.logPath, 'utf8');
+      expect(finalLog).toContain('<think>long thought without newline');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('逾時先 SIGTERM、10 秒寬限後 SIGKILL 並標記 failed', async () => {
     vi.useFakeTimers();
     try {

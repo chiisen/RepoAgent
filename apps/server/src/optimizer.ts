@@ -38,6 +38,7 @@ export interface JobRecord {
 
 const JOB_TIMEOUT_MS = 1_800_000; // 預設 30 分鐘；實際以 configStore.timeout（秒）為準
 const KILL_GRACE_MS = 10_000; // SIGTERM 後等 10 秒再 SIGKILL（雙平台）
+const HEARTBEAT_MS = 5_000; // 執行中心跳＋無換行殘行沖刷
 
 // job 逾時改為可設定：讀 configStore.timeout（秒，PUT /api/config 可改 60..7200），
 // 異常值退回預設，避免改壞設定導致永不逾時或秒殺。
@@ -62,6 +63,7 @@ const jobMap = new Map<string, JobRecord>();
 const childMap = new Map<string, ChildProcess>();
 // 逾時計時器獨立存放：job 物件需保持 JSON 可序列化（API 直接回傳），不可掛 Timeout
 const timeoutMap = new Map<string, ReturnType<typeof setTimeout>>();
+const pulseMap = new Map<string, ReturnType<typeof setInterval>>();
 
 function clearJobTimeout(jobId: string): void {
   const t = timeoutMap.get(jobId);
@@ -69,6 +71,20 @@ function clearJobTimeout(jobId: string): void {
     clearTimeout(t);
     timeoutMap.delete(jobId);
   }
+}
+
+function clearJobPulse(jobId: string): void {
+  const t = pulseMap.get(jobId);
+  if (t) {
+    clearInterval(t);
+    pulseMap.delete(jobId);
+  }
+}
+
+function clipLog(s: string, n = 200): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  if (t.length <= n) return t;
+  return t.slice(-n);
 }
 
 // 規格 §5：log 保留最近 50 個 job 檔，超過刪檔不刪 DB 紀錄
@@ -103,7 +119,7 @@ export function pruneJobLogs(dir: string, keep = MAX_JOB_LOGS): { kept: number; 
 }
 
 // exported for testing
-export { jobMap, childMap, JOB_TIMEOUT_MS, KILL_GRACE_MS };
+export { jobMap, childMap, JOB_TIMEOUT_MS, KILL_GRACE_MS, HEARTBEAT_MS };
 
 let wsInstance: Server | null = null;
 let dbInstance: DatabaseSync | null = null;
@@ -138,12 +154,24 @@ export function notifyEvent(
   broadcast({ type, ...payload });
 }
 
+function emitJobDone(job: JobRecord): void {
+  notifyEvent('job:done', {
+    jobId: job.id,
+    repoId: job.repoId,
+    status: job.status,
+    exitCode: job.exitCode,
+    diff: job.diff,
+  });
+}
+
 export function initOptimizer(io: Server, db: DatabaseSync): void {
   wsInstance = io;
   dbInstance = db;
   jobMap.clear();
   for (const t of timeoutMap.values()) clearTimeout(t);
   timeoutMap.clear();
+  for (const t of pulseMap.values()) clearInterval(t);
+  pulseMap.clear();
   for (const child of childMap.values()) {
     try { child.kill('SIGKILL'); } catch { /* 已退出則忽略 */ }
   }
@@ -192,7 +220,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       job.status = 'failed';
       job.exitCode = -1;
       job.finishedAt = new Date().toISOString();
-      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
+      emitJobDone(job);
       done();
       return;
     }
@@ -221,7 +249,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       job.status = 'failed';
       job.exitCode = -1;
       job.finishedAt = new Date().toISOString();
-      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
+      emitJobDone(job);
       done();
       return;
     }
@@ -238,6 +266,19 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
 
     let outRest = '';
     let errRest = '';
+    const startedMs = Date.now();
+
+    const appendLogLine = (line: string, notify = true): void => {
+      try { fs.appendFileSync(job.logPath!, line + '\n'); } catch { /* 忽略 */ }
+      if (notify) notifyEvent('job:log', { jobId: job.id, line });
+    };
+
+    pulseMap.set(job.id, setInterval(() => {
+      if (outRest.trim()) appendLogLine(`$ partial stdout: ${clipLog(outRest)}`);
+      if (errRest.trim()) appendLogLine(`$ partial stderr: ${clipLog(errRest)}`);
+      const secs = Math.max(1, Math.round((Date.now() - startedMs) / 1000));
+      appendLogLine(`$ still running ${secs}s`);
+    }, HEARTBEAT_MS));
 
     child.stdout?.on('data', (chunk) => {
       // \r?\n：相容 Windows CRLF 與 Unix LF
@@ -264,6 +305,7 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
 
     child.on('exit', async (code) => {
       clearJobTimeout(job.id);
+      clearJobPulse(job.id);
       childMap.delete(job.id);
       // 無結尾換行的殘行（pi 異常退出時常見）直接落檔，避免最後訊息遺失
       for (const rest of [outRest, errRest]) {
@@ -285,12 +327,13 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
           job.diff = null;
         }
       }
-      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
+      emitJobDone(job);
       done();
     });
 
     child.on('error', (err) => {
       clearJobTimeout(job.id);
+      clearJobPulse(job.id);
       childMap.delete(job.id);
       const e = err as NodeJS.ErrnoException;
       // ENOENT：pi 不存在（不在 PATH / 路徑錯誤），雙平台皆經此分支；
@@ -301,19 +344,20 @@ export function startJob(job: JobRecord, db: DatabaseSync): Promise<void> {
       try {
         fs.appendFileSync(job.logPath!, `spawn failed [${e.code ?? 'UNKNOWN'}]: check pi path / PI_PATH\n`);
       } catch { /* log 寫失敗不影響狀態 */ }
-      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
+      emitJobDone(job);
       done();
     });
 
     // Timeout watchdog：先 SIGTERM，10 秒不死才 SIGKILL（時限見 getJobTimeoutMs）
     timeoutMap.set(job.id, setTimeout(() => {
       timeoutMap.delete(job.id);
+      clearJobPulse(job.id);
       const c = childMap.get(job.id);
       if (c) terminate(c);
       job.status = 'failed';
       job.finishedAt = new Date().toISOString();
       try { fs.appendFileSync(job.logPath!, `$ timeout: exceeded ${Math.round(getJobTimeoutMs() / 1000)}s\n`); } catch { /* 忽略 */ }
-      notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
+      emitJobDone(job);
       done();
     }, getJobTimeoutMs()));
   });
@@ -361,9 +405,10 @@ export function cancelJob(jobId: string): void {
     childMap.delete(jobId);
   }
   clearJobTimeout(jobId);
+  clearJobPulse(jobId);
   job.status = 'cancelled';
   job.finishedAt = new Date().toISOString();
-  notifyEvent('job:done', { jobId: job.id, repoId: job.repoId, diff: job.diff });
+  emitJobDone(job);
   jobMap.delete(jobId);
 }
 

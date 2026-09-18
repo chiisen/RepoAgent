@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   diffHtml,
   jobCls,
+  jobEndToast,
   lampOf,
   normalizeRootDirInput,
   scanCaption,
@@ -82,6 +83,14 @@ describe('jobCls', () => {
     expect(jobCls('failed')).toBe('job-failed');
     expect(jobCls('cancelled')).toBe('job-failed');
     expect(jobCls('running')).toBe('job-running');
+  });
+});
+
+describe('jobEndToast', () => {
+  it('完成／失敗／取消含專案名', () => {
+    expect(jobEndToast('done', 'D:\\github\\Foo')).toBe('pi 優化完成：Foo');
+    expect(jobEndToast('failed', '/home/me/Bar')).toBe('pi 優化失敗：Bar');
+    expect(jobEndToast('cancelled', undefined, 'Baz')).toBe('已取消 pi 優化：Baz');
   });
 });
 

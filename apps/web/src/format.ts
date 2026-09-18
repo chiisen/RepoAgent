@@ -41,6 +41,23 @@ export function jobCls(st: string): string {
   return st === 'done' ? 'job-done' : st === 'failed' || st === 'cancelled' ? 'job-failed' : 'job-running';
 }
 
+export function repoLabel(repoId?: string | null, fallback = '專案'): string {
+  if (!repoId) return fallback;
+  const parts = String(repoId).replace(/\\/g, '/').split('/').filter(Boolean);
+  return parts[parts.length - 1] || fallback;
+}
+
+export function jobEndToast(
+  status?: string | null,
+  repoId?: string | null,
+  repoName?: string | null,
+): string {
+  const name = (repoName && repoName.trim()) || repoLabel(repoId);
+  if (status === 'cancelled') return '已取消 pi 優化：' + name;
+  if (status === 'failed') return 'pi 優化失敗：' + name;
+  return 'pi 優化完成：' + name;
+}
+
 export function escHtml(s: string): string {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }

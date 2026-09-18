@@ -7,6 +7,10 @@
 
 ### 新增
 
+- pi 優化結束 toast 用高對比配色（完成亮綠、失敗亮紅、取消黃）並加粗；抽屜 job 狀態字同色加粗。
+- pi 優化結束時右下角 toast 提醒（完成／失敗／取消，含專案名）；`job:done` 帶 status。
+- 優化 job 執行中每 5 秒心跳（`$ still running`）並沖刷無換行殘行（`$ partial stdout/stderr`），避免 pi 長考時抽屜卡在 spawn 那一行。
+
 - 掃描黑名單可編輯：`skipDirs` 持久化；`.git` 仍強制略過（issue #13）。
 - 儀表板視覺小修：8px 間距、卡片／頂欄對比、按鈕 hover／focus、窄螢幕 rootDir 全寬；不換路由與狀態庫（issue #17）。
 - 可選遞迴掃描：`scanRecursive`（預設 false）與 `scanDepth` 1–5；略過 `node_modules` 等，找到 `.git` 不再往內走（issue #12）。
@@ -17,6 +21,7 @@
 
 ### 變更
 
+- 測試期預設改用簡短 prompt（只回 OK、列根層前 10 檔、不改檔）；正式樣板仍在設定／頂部可選「預設」。
 - 根目錄 `npm run dev`／`build`／`start`／`test`：一鍵起 Vite+Express（issue #15）；Vite 開發時 WS 連 3000。
 - README 對齊 0.2.0：正式 UI 為有 `dist` 時送 React、否則 fallback；拿掉「dist 尚未建置」與過時的 `/config`、測試筆數、目錄結構（issue #16）。
 

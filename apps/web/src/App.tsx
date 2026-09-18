@@ -3,7 +3,7 @@ import { api, ApiError } from './api';
 import { Header } from './components/Header';
 import { Drawer, type DrawerMode } from './components/Drawer';
 import { RepoGrid } from './components/RepoGrid';
-import { normalizeRootDirInput, scanCaption } from './format';
+import { jobEndToast, normalizeRootDirInput, scanCaption } from './format';
 import type { Config, Repo, ScanProgress } from './types';
 import { useWs } from './useWs';
 
@@ -20,6 +20,7 @@ export function App() {
   const [scanning, setScanning] = useState(false);
   const [scanLabel, setScanLabel] = useState('掃描中…');
   const [toastMsg, setToastMsg] = useState('');
+  const [toastTone, setToastTone] = useState('');
   const [drawer, setDrawer] = useState<DrawerMode>({ kind: 'closed' });
   const [pullingId, setPullingId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -28,11 +29,16 @@ export function App() {
   const [promptId, setPromptId] = useState('default');
   const [promptTemplates, setPromptTemplates] = useState<{ id: string; name: string }[]>([]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jobToastIds = useRef(new Set<string>());
 
-  const toast = useCallback((m: string) => {
+  const toast = useCallback((m: string, ms = 4000, tone = '') => {
     setToastMsg(m);
+    setToastTone(tone);
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastMsg(''), 4000);
+    toastTimer.current = setTimeout(() => {
+      setToastMsg('');
+      setToastTone('');
+    }, ms);
   }, []);
 
   const loadRepos = useCallback(async () => {
@@ -43,7 +49,10 @@ export function App() {
     setTotal(data.total ?? data.repos.length);
   }, [q, filter, sort]);
 
-  const onJobEnded = useCallback((endedId?: string) => {
+  const onJobEnded = useCallback((
+    endedId?: string,
+    info?: { status?: string; repoId?: string; repoName?: string },
+  ) => {
     const id = endedId || activeJobId;
     if (id) {
       setJobsByPath((prev) => {
@@ -54,9 +63,15 @@ export function App() {
         return next;
       });
       setActiveJobId((cur) => (cur === id ? null : cur));
+      if (!jobToastIds.current.has(id)) {
+        jobToastIds.current.add(id);
+        const hasInfo = Boolean(info?.status || info?.repoName || info?.repoId);
+        const tone = info?.status === 'failed' ? 'fail' : info?.status === 'cancelled' ? 'warn' : 'ok';
+        toast(hasInfo ? jobEndToast(info?.status, info?.repoId, info?.repoName) : 'pi 優化已結束', 8000, tone);
+      }
     }
     void loadRepos().catch(() => {});
-  }, [loadRepos, activeJobId]);
+  }, [loadRepos, activeJobId, toast]);
 
   const { open: wsOpen } = useWs((m) => {
     if (m.type === 'job:log') {
@@ -64,7 +79,7 @@ export function App() {
         setJobExtraLog((prev) => prev + (m.line || '') + '\n');
       }
     } else if (m.type === 'job:done') {
-      if (m.jobId) onJobEnded(m.jobId);
+      if (m.jobId) onJobEnded(m.jobId, { status: m.status, repoId: m.repoId });
       else void loadRepos().catch(() => {});
     } else if (m.type === 'scan:done') {
       if (!scanning) {
@@ -253,7 +268,7 @@ export function App() {
         extraLog={jobExtraLog}
         onJobEnded={onJobEnded}
       />
-      <div id="toast" className={toastMsg ? 'show' : undefined}>
+      <div id="toast" className={[toastMsg ? 'show' : '', toastTone ? 'toast-' + toastTone : ''].filter(Boolean).join(' ') || undefined}>
         {toastMsg}
       </div>
     </>

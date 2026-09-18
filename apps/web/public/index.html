@@ -15,7 +15,10 @@
     button:hover:not(:disabled) { background: #34343a; }
     #rootDir { min-width: 28rem; flex: 1; }
     #repoCount { font-size: 14px; color: var(--muted); white-space: nowrap; }
-    #toast { position: fixed; right: 16px; bottom: 16px; background: #2a2a2e; padding: 12px 16px; border-radius: 8px; display: none; max-width: 420px; border: 1px solid var(--border); }
+    #toast { position: fixed; right: 16px; bottom: 16px; background: #2a2a2e; padding: 12px 16px; border-radius: 8px; display: none; max-width: 420px; border: 1px solid var(--border); font-size: 16px; font-weight: 700; }
+    #toast.toast-ok { color: #7dffb0; background: #12351f; border-color: #3ddc84; }
+    #toast.toast-fail { color: #ff9b9b; background: #3a1414; border-color: #ff7a7a; }
+    #toast.toast-warn { color: #ffe08a; background: #3a2e10; border-color: #e8c04a; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 16px 20px; }
     .card { background: var(--card); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
     .title { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 15px; }
@@ -29,9 +32,9 @@
     #drawer { position: fixed; top: 0; right: 0; width: min(420px, 100%); height: 100%; background: #141416; transform: translateX(100%); transition: transform .2s; overflow: auto; padding: 20px; box-sizing: border-box; border-left: 1px solid var(--border); }
     #drawer.open { transform: none; }
     pre { white-space: pre-wrap; font-size: 13px; background: #111; padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
-    .job-running { color: #e8c04a; }
-    .job-done { color: #3ddc84; }
-    .job-failed { color: #ff7a7a; }
+    .job-running { color: #ffd56a; font-weight: 700; }
+    .job-done { color: #7dffb0; font-weight: 700; }
+    .job-failed { color: #ff9b9b; font-weight: 700; }
     button:disabled { opacity: 0.55; cursor: not-allowed; }
     .spin { display: inline-block; width: 0.85em; height: 0.85em; margin-right: 6px; border: 2px solid #555; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -64,7 +67,13 @@
   <div id="toast"></div>
   <script>
     const $ = (id) => document.getElementById(id);
-    const toast = (m) => { const t = $('toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 4000); };
+    const toast = (m, ms, tone) => {
+      const t = $('toast');
+      t.textContent = m;
+      t.className = tone ? 'toast-' + tone : '';
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; t.className = ''; }, ms || 4000);
+    };
     const lamp = (r) => r.lastError ? ['lamp-fail', '失敗'] : r.isDirty ? ['lamp-dirty', '有變更'] : ['lamp-clean', '乾淨'];
     const tracking = (r) => {
       if (r.ahead == null && r.behind == null) return '無 upstream';
@@ -283,6 +292,14 @@
         } else if (m.type === 'job:done') {
           loadRepos().catch(() => {});
           if (m.jobId === activeJobId) refreshNow();
+          (function () {
+            var parts = String(m.repoId || '').replace(/\\/g, '/').split('/').filter(Boolean);
+            var name = parts.length ? parts[parts.length - 1] : '專案';
+            var msg = m.status === 'cancelled' ? '已取消 pi 優化：' + name
+              : m.status === 'failed' ? 'pi 優化失敗：' + name
+              : 'pi 優化完成：' + name;
+            toast(msg, 8000, m.status === 'failed' ? 'fail' : m.status === 'cancelled' ? 'warn' : 'ok');
+          })();
         } else if (m.type === 'scan:done') {
           if (!scanning) {
             toast('掃描完成：' + m.okCount + ' 成功 / ' + m.failCount + ' 失敗');

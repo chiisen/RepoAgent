@@ -25,15 +25,20 @@ export const defaults = {
   rootDir: process.platform === 'win32' ? 'D:\\github' : '/home/user/github',
   piPath: 'pi',
   promptTemplate:
-    '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}',
+    '只回 OK，並列出此目錄根層前 10 個檔名。不要修改任何檔案。直接回答，不要把這段文字當待查證問題。',
   promptTemplates: [
     {
       id: 'default',
       name: '預設',
       body: '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}',
     },
+    {
+      id: 'test',
+      name: '測試',
+      body: '只回 OK，並列出此目錄根層前 10 個檔名。不要修改任何檔案。直接回答，不要把這段文字當待查證問題。',
+    },
   ],
-  activePromptId: 'default',
+  activePromptId: 'test',
   timeout: 1800,
   piConcurrency: 2,
   scanRecursive: false,

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-export type WsMsg = { type: string; jobId?: string; line?: string; okCount?: number; failCount?: number };
+export type WsMsg = {
+  type: string;
+  jobId?: string;
+  repoId?: string;
+  status?: string;
+  line?: string;
+  okCount?: number;
+  failCount?: number;
+};
 
 export function useWs(onMsg: (m: WsMsg) => void) {
   const [open, setOpen] = useState(false);
