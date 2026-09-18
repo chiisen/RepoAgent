@@ -21,13 +21,13 @@ afterAll(() => new Promise<void>((resolve, reject) => {
 }));
 
 describe('HTTP 煙霧', () => {
-  it('GET / 回 200 HTML fallback', async () => {
+  it('GET / 回 200 HTML（dist 優先，否則 fallback）', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type') ?? '').toMatch(/html/i);
     const html = await res.text();
     expect(html).toMatch(/RepoAgent/);
-    expect(html).toMatch(/btnScan/);
+    expect(html).toMatch(/btnScan|id="root"/);
     expect(res.headers.get('content-security-policy') ?? '').not.toMatch(/default-src 'none'/);
   });
 

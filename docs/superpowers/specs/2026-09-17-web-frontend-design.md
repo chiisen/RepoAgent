@@ -1,7 +1,7 @@
 # RepoAgent Web 前端（React 重寫）設計規格
 
 - 日期：2026-09-17
-- 狀態：待審（使用者已批准設計方向，待審閱本文件）
+- 狀態：已確認（依此實作 issue #6）
 - 對應 issue：#6（前端儀表板）
 - 前置規格：`docs/superpowers/specs/2026-09-15-repoagent-design.md`（後端 API／WS／資料模型沿用，不更動）
 - 範圍決議：與現有 `apps/web/public` fallback **功能對等**重寫＋補設定頁；fallback 保留作降級；設定頁用抽屜（無路由）。

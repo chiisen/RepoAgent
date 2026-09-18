@@ -26,7 +26,7 @@ npm start
 ### 3. 開啟網頁
 直接在瀏覽器開啟：`http://localhost:3000`
 
-> **注意**：目前 `apps/web/dist/` (React 客製介面) 尚未建置，直接開啟可能只顯示基礎卡片列表。完整 UI 請參見「補建前端」一節。
+> 正式 UI：`cd apps/web && npm install && npm run build` 後重啟後端，`GET /` 會送 React `dist`。未建置時使用 `apps/web/public` fallback。
 
 ---
 
@@ -111,33 +111,20 @@ curl http://localhost:3000/api/jobs/1
 
 ## 4. 補建前端 (完整 UI 體驗)
 
-若想獲得完整的卡片牆介面（非 API 列表形式），必須建置前端靜態檔：
-
 ```powershell
-# 1. 進入 web 目錄
 cd apps/web
-
-# 2. 安裝相依項
 npm install
-
-# 3. 編譯建置
-npx vite build
-
-# 4. 重啟後端伺服器 (先停止再重啟)
-#    按 Ctrl+C 停止之前的 npm start
-#    然後重新執行第 2 步的啟動命令
-
-# 5. 開啟 http://localhost:3000
-# 現在應該能看到完整的卡片牆介面、
-# 包含：搜尋框、篩選(乾淨/有變更/全部)、排序、卡片詳細資訊、
-#       優化按鈕、設定頁面等所有功能
+npm run build
+# 重啟 apps/server 的 npm start 後開啟 http://localhost:3000
 ```
+
+建置後有卡片牆、搜尋／篩選／排序、詳情與優化抽屜、設定抽屜（rootDir／pi 路徑／樣板／timeout）。
 
 ---
 
 ## 5. 已知限制
 
-- **前端 dist 尚未建置**：直接開啟 `http://localhost:3000` 只顯示基礎介面，完整 UI 請執行「補建前端」一節的步驟
+- **未執行 `apps/web` 建置時**：`GET /` 走 fallback 基礎介面；`npm run build` 後為 React 正式版
 - **pi CLI 必須手動安裝**：本專案不自動安裝 pi，請自行安裝或提供絕對路徑
 - **僅掃描下一層**：不支援遞迴掃描子目錄
 - **單一 pi job 佇列**：同一時間只能進行一個優化作業，新請求會進入佇列
