@@ -12,11 +12,12 @@ export function createConfigRouter() {
       piPath: configStore.piPath,
       promptTemplate: configStore.promptTemplate,
       timeout: configStore.timeout,
+      piConcurrency: configStore.piConcurrency,
     });
   });
 
   router.put('/', (req: Request, res: Response) => {
-    const { rootDir, piPath, promptTemplate, timeout } = req.body;
+    const { rootDir, piPath, promptTemplate, timeout, piConcurrency } = req.body;
 
     if (rootDir !== undefined) {
       try {
@@ -46,6 +47,13 @@ export function createConfigRouter() {
       }
       configStore.timeout = n;
     }
+    if (piConcurrency !== undefined) {
+      const n = Number(piConcurrency);
+      if (!Number.isInteger(n) || n < 1 || n > 4) {
+        return res.status(400).json({ error: `piConcurrency must be an integer 1..4, got: ${piConcurrency}` });
+      }
+      configStore.piConcurrency = n;
+    }
 
     saveConfig();
     res.json({
@@ -53,6 +61,7 @@ export function createConfigRouter() {
       piPath: configStore.piPath,
       promptTemplate: configStore.promptTemplate,
       timeout: configStore.timeout,
+      piConcurrency: configStore.piConcurrency,
     });
   });
 

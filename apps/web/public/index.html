@@ -222,11 +222,6 @@
             btn.textContent = '更新';
           }
         } else {
-          if (activeJobId) {
-            toast('已有優化執行中，開啟監控');
-            openJobDrawer(repoName, activeJobId);
-            return;
-          }
           try {
             const r = await api('/api/repos/' + id + '/optimize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
             toast('已排程 job ' + r.job.id);
@@ -234,7 +229,7 @@
             openJobDrawer(repoName, r.job.id);
           } catch (e) {
             if (e && e.status === 409 && e.body && e.body.jobId) {
-              toast('已有優化執行中，開啟監控');
+              toast('此專案優化執行中，開啟監控');
               activeJobId = e.body.jobId;
               openJobDrawer(repoName, e.body.jobId);
             } else {

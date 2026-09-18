@@ -46,7 +46,7 @@ npm start
 
 - **詳情**：status 前段與近 5 筆 commit。
 - **更新**：該卡 `git pull --ff-only`（dirty 跳過、無 upstream 失敗）。
-- **用 pi 優化**：單併發；即時 log；exit 0 後重掃並顯示前後 diff。已有 job 時會 409，不是無限佇列。
+- **用 pi 優化**：可設併發 1–4（預設 2）；即時 log；exit 0 後重掃並顯示前後 diff。同一專案或達上限時 409。
 
 ### 設定
 
@@ -56,6 +56,7 @@ npm start
 - pi 路徑（`pi` 或絕對路徑）
 - prompt 樣板
 - timeout（秒）
+- pi 併發（1–4，預設 2）
 
 `pi` 需自行安裝；路徑錯誤應出現明確失敗，不應卡死。
 
@@ -93,7 +94,7 @@ Playwright 忽略 Chrome 擴充功能（`content_main.js`）的 console。本頁
 ## 已知限制
 
 - 未執行 `apps/web` 建置時走 fallback，功能對等但無獨立設定抽屜（fallback 頂部只改 rootDir）。
-- 僅掃描下一層；同一時間一個 pi job。
+- 僅掃描下一層；pi 預設最多 2 個同時跑。
 - 不內建安裝 `pi`。
 
 ---

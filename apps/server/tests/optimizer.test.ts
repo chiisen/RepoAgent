@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync,
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openDb } from '../src/db.js';
-import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, getJobTimeoutMs, jobMap, childMap, pruneJobLogs, MAX_JOB_LOGS } from '../src/optimizer.js';
+import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, listActiveJobs, getPiConcurrency, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, getJobTimeoutMs, jobMap, childMap, pruneJobLogs, MAX_JOB_LOGS } from '../src/optimizer.js';
 import { configStore } from '../src/config.js';
 
 vi.mock('node:child_process', () => ({
@@ -77,6 +77,24 @@ describe('optimizer runtime', () => {
     expect(getActiveJob()?.id).toBe(job.id);
     cancelJob(job.id);
     expect(getActiveJob()).toBeUndefined();
+  });
+
+  it('listActiveJobs 可多筆；getPiConcurrency 1..4 預設 2', () => {
+    expect(listActiveJobs()).toEqual([]);
+    createJob('/a', 'p');
+    createJob('/b', 'p');
+    expect(listActiveJobs()).toHaveLength(2);
+    const saved = configStore.piConcurrency;
+    try {
+      configStore.piConcurrency = 3;
+      expect(getPiConcurrency()).toBe(3);
+      configStore.piConcurrency = 0;
+      expect(getPiConcurrency()).toBe(2);
+      configStore.piConcurrency = 9;
+      expect(getPiConcurrency()).toBe(2);
+    } finally {
+      configStore.piConcurrency = saved;
+    }
   });
 
   it('getJobTimeoutMs 跟隨 configStore.timeout，異常值退回預設', () => {

@@ -1,12 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { existsSync, readFileSync } from 'node:fs';
-import { getJobStatus, cancelJob, getJobTimeoutMs } from '../optimizer.js';
+import { getJobStatus, cancelJob, getJobTimeoutMs, listActiveJobs } from '../optimizer.js';
 import { getPiHeartbeat } from '../piHeartbeat.js';
 
 const LOG_TAIL_LINES = 50;
 
 export function createJobsRouter(): Router {
   const router = Router();
+
+  router.get('/jobs', (_req: Request, res: Response) => {
+    res.json({ jobs: listActiveJobs() });
+  });
 
   // job 狀態 + log 尾 50 行 + pi 心跳 + 逾時秒數
   router.get('/jobs/:id', (req: Request, res: Response) => {

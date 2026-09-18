@@ -15,7 +15,7 @@ type Props = {
   toast: (m: string) => void;
   wsOpen: boolean;
   extraLog?: string;
-  onJobEnded: () => void;
+  onJobEnded: (jobId?: string) => void;
 };
 
 export function Drawer({ mode, onClose, toast, wsOpen, extraLog, onJobEnded }: Props) {
@@ -76,7 +76,7 @@ function JobBody({
   toast: (m: string) => void;
   wsOpen: boolean;
   extraLog?: string;
-  onJobEnded: () => void;
+  onJobEnded: (jobId?: string) => void;
 }) {
   const [d, setD] = useState<JobDetail | null>(null);
   const [missing, setMissing] = useState(false);
@@ -88,7 +88,7 @@ function JobBody({
     const finish = () => {
       if (endedRef.current) return;
       endedRef.current = true;
-      onJobEnded();
+      onJobEnded(jobId);
     };
     const refresh = async () => {
       try {
@@ -178,6 +178,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
   const [piPath, setPiPath] = useState('');
   const [promptTemplate, setPromptTemplate] = useState('');
   const [timeout, setTimeoutSec] = useState('600');
+  const [piConcurrency, setPiConcurrency] = useState('2');
 
   useEffect(() => {
     api<Config>('/api/config')
@@ -187,6 +188,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
         setPiPath(c.piPath || 'pi');
         setPromptTemplate(c.promptTemplate || '');
         setTimeoutSec(String(c.timeout ?? 600));
+        setPiConcurrency(String(c.piConcurrency ?? 2));
       })
       .catch((e) => toast(String(e.message || e)));
   }, [toast]);
@@ -201,6 +203,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           piPath,
           promptTemplate,
           timeout: Number(timeout),
+          piConcurrency: Number(piConcurrency),
         }),
       });
       toast('設定已儲存');
@@ -241,6 +244,17 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
       <div className="field">
         <label htmlFor="cfgTimeout">timeout（秒）</label>
         <input id="cfgTimeout" type="number" value={timeout} onChange={(e) => setTimeoutSec(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="cfgPiConcurrency">pi 併發（1–4）</label>
+        <input
+          id="cfgPiConcurrency"
+          type="number"
+          min={1}
+          max={4}
+          value={piConcurrency}
+          onChange={(e) => setPiConcurrency(e.target.value)}
+        />
       </div>
       <button id="btnSaveConfig" type="button" onClick={save}>
         儲存

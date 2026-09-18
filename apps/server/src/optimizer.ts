@@ -41,6 +41,12 @@ const KILL_GRACE_MS = 10_000; // SIGTERM 後等 10 秒再 SIGKILL（雙平台）
 
 // job 逾時改為可設定：讀 configStore.timeout（秒，PUT /api/config 可改 60..7200），
 // 異常值退回預設，避免改壞設定導致永不逾時或秒殺。
+export function getPiConcurrency(): number {
+  const n = Number(configStore.piConcurrency);
+  if (!Number.isInteger(n) || n < 1 || n > 4) return 2;
+  return n;
+}
+
 export function getJobTimeoutMs(): number {
   const s = Number(configStore.timeout);
   if (!Number.isFinite(s) || s < 60 || s > 7200) return JOB_TIMEOUT_MS;
@@ -361,12 +367,18 @@ export function cancelJob(jobId: string): void {
   jobMap.delete(jobId);
 }
 
-// V1 單併發：同一時間只跑一個 pi，有 queued/running 的 job 即視為忙碌中
+export function listActiveJobs(): JobRecord[] {
+  return [...jobMap.values()].filter((job) => job.status === 'queued' || job.status === 'running');
+}
+
+export function getActiveJobForRepo(repoPath: string): JobRecord | undefined {
+  const want = path.resolve(repoPath);
+  return listActiveJobs().find((job) => path.resolve(job.repoId) === want);
+}
+
+// 相容：回傳任一執行中 job（單筆查詢／舊測試）
 export function getActiveJob(): JobRecord | undefined {
-  for (const job of jobMap.values()) {
-    if (job.status === 'queued' || job.status === 'running') return job;
-  }
-  return undefined;
+  return listActiveJobs()[0];
 }
 
 // Get job status

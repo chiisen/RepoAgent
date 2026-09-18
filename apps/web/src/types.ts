@@ -24,6 +24,7 @@ export type Config = {
   piPath: string;
   promptTemplate: string;
   timeout: number;
+  piConcurrency: number;
 };
 
 export type Job = {

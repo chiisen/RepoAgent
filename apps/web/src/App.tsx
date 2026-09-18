@@ -23,6 +23,7 @@ export function App() {
   const [drawer, setDrawer] = useState<DrawerMode>({ kind: 'closed' });
   const [pullingId, setPullingId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobsByPath, setJobsByPath] = useState<Record<string, string>>({});
   const [jobExtraLog, setJobExtraLog] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -40,10 +41,20 @@ export function App() {
     setTotal(data.total ?? data.repos.length);
   }, [q, filter, sort]);
 
-  const onJobEnded = useCallback(() => {
-    setActiveJobId(null);
+  const onJobEnded = useCallback((endedId?: string) => {
+    const id = endedId || activeJobId;
+    if (id) {
+      setJobsByPath((prev) => {
+        const next = { ...prev };
+        for (const [p, j] of Object.entries(next)) {
+          if (j === id) delete next[p];
+        }
+        return next;
+      });
+      setActiveJobId((cur) => (cur === id ? null : cur));
+    }
     void loadRepos().catch(() => {});
-  }, [loadRepos]);
+  }, [loadRepos, activeJobId]);
 
   const { open: wsOpen } = useWs((m) => {
     if (m.type === 'job:log') {
@@ -51,7 +62,8 @@ export function App() {
         setJobExtraLog((prev) => prev + (m.line || '') + '\n');
       }
     } else if (m.type === 'job:done') {
-      void loadRepos().catch(() => {});
+      if (m.jobId) onJobEnded(m.jobId);
+      else void loadRepos().catch(() => {});
     } else if (m.type === 'scan:done') {
       if (!scanning) {
         toast('掃描完成：' + m.okCount + ' 成功 / ' + m.failCount + ' 失敗');
@@ -66,6 +78,13 @@ export function App() {
         if (c.rootDir) setRootDir(normalizeRootDirInput(c.rootDir));
         return loadRepos();
       })
+      .then(() =>
+        api<{ jobs: { id: string; repoId: string }[] }>('/api/jobs').then((d) => {
+          const map: Record<string, string> = {};
+          for (const j of d.jobs || []) map[j.repoId] = j.id;
+          setJobsByPath(map);
+        }),
+      )
       .catch((e) => toast(String(e.message || e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -148,27 +167,33 @@ export function App() {
     }
   };
 
-  const onOpt = async (id: string, name: string) => {
-    if (activeJobId) {
-      toast('已有優化執行中，開啟監控');
-      setDrawer({ kind: 'job', jobId: activeJobId, repoName: name });
+  const onOpt = async (id: string, name: string, repoPath: string) => {
+    const existing = jobsByPath[repoPath];
+    if (existing) {
+      toast('此專案優化執行中，開啟監控');
+      setActiveJobId(existing);
+      setJobExtraLog('');
+      setDrawer({ kind: 'job', jobId: existing, repoName: name });
       return;
     }
     try {
-      const r = await api<{ job: { id: string } }>('/api/repos/' + id + '/optimize', {
+      const r = await api<{ job: { id: string; repoId: string } }>('/api/repos/' + id + '/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
       });
       toast('已排程 job ' + r.job.id);
+      setJobsByPath((prev) => ({ ...prev, [r.job.repoId || repoPath]: r.job.id }));
       setActiveJobId(r.job.id);
       setJobExtraLog('');
       setDrawer({ kind: 'job', jobId: r.job.id, repoName: name });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && e.body.jobId) {
-        toast('已有優化執行中，開啟監控');
+        toast('此專案優化執行中，開啟監控');
         const jid = String(e.body.jobId);
+        setJobsByPath((prev) => ({ ...prev, [repoPath]: jid }));
         setActiveJobId(jid);
+        setJobExtraLog('');
         setDrawer({ kind: 'job', jobId: jid, repoName: name });
       } else {
         toast(String((e as Error).message || e));
@@ -200,9 +225,10 @@ export function App() {
       <RepoGrid
         repos={repos}
         pullingId={pullingId}
+        jobsByPath={jobsByPath}
         onDetail={(id) => setDrawer({ kind: 'detail', id })}
         onPull={(id) => void onPull(id)}
-        onOpt={(id, name) => void onOpt(id, name)}
+        onOpt={(id, name, path) => void onOpt(id, name, path)}
       />
       <div id="scanMask" className={scanning ? 'show' : undefined} aria-live="polite">
         <span>

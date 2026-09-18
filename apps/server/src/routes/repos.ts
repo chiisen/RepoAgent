@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
 import { randomUUID } from 'node:crypto';
-import { createJob, startJob, getActiveJob, DEFAULT_PROMPT_TEMPLATE } from '../optimizer.js';
+import { createJob, startJob, getActiveJobForRepo, listActiveJobs, getPiConcurrency, DEFAULT_PROMPT_TEMPLATE } from '../optimizer.js';
 import { lastOutputLine, pullFastForward } from '../pull.js';
 import { refreshRepo } from '../scanner.js';
 
@@ -61,16 +61,22 @@ export function createReposRouter(db: DatabaseSync): Router {
     }
   });
 
-  // 優化：建 job 並 fire-and-forget 啟動，以 WS/輪詢追蹤進度
-  // V1 單併發：已有執行中 job 時回 409（前端接到後直接打開該 job 的監控）
+  // 優化：建 job 並 fire-and-forget。同一 repo 或達 piConcurrency 上限時 409。
   router.post('/repos/:id/optimize', (req: Request, res: Response) => {
     const repo = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id) as any;
     if (!repo) return res.status(404).json({ error: 'repo not found' });
-    const active = getActiveJob();
-    if (active) {
+    const same = getActiveJobForRepo(repo.path);
+    if (same) {
       return res.status(409).json({
-        error: `已有優化執行中（job ${active.id}），請等完成後再按`,
-        jobId: active.id,
+        error: `此專案已有優化執行中（job ${same.id}）`,
+        jobId: same.id,
+      });
+    }
+    const limit = getPiConcurrency();
+    if (listActiveJobs().length >= limit) {
+      return res.status(409).json({
+        error: `已達 pi 併發上限（${limit}）`,
+        limit,
       });
     }
     const custom = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';

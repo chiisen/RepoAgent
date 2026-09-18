@@ -11,6 +11,7 @@ export interface ConfigStore {
   piPath: string;
   promptTemplate: string;
   timeout: number;
+  piConcurrency: number;
 }
 
 export const defaults = {
@@ -19,6 +20,7 @@ export const defaults = {
   promptTemplate:
     '分析此 repo 的程式碼品質（異味、重複、依賴老舊），提出並執行安全的優化，保留 git 可回退，輸出繁中摘要。repo={repoPath} branch={branch}',
   timeout: 1800,
+  piConcurrency: 2,
 };
 
 let config: ConfigStore = { ...defaults };

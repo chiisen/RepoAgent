@@ -4,12 +4,13 @@ import { RepoCard } from './RepoCard';
 type Props = {
   repos: Repo[];
   pullingId: string | null;
+  jobsByPath: Record<string, string>;
   onDetail: (id: string) => void;
   onPull: (id: string) => void;
-  onOpt: (id: string, name: string) => void;
+  onOpt: (id: string, name: string, path: string) => void;
 };
 
-export function RepoGrid({ repos, pullingId, onDetail, onPull, onOpt }: Props) {
+export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt }: Props) {
   if (!repos.length) {
     return (
       <div className="grid" id="grid">
@@ -23,10 +24,10 @@ export function RepoGrid({ repos, pullingId, onDetail, onPull, onOpt }: Props) {
         <RepoCard
           key={r.id}
           repo={r}
-          busy={pullingId === r.id}
+          busy={pullingId === r.id || !!jobsByPath[r.path]}
           onDetail={() => onDetail(r.id)}
           onPull={() => onPull(r.id)}
-          onOpt={() => onOpt(r.id, r.name)}
+          onOpt={() => onOpt(r.id, r.name, r.path)}
         />
       ))}
     </div>
