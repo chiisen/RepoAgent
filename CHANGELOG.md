@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### 變更
+
+- README 對齊 0.2.0：正式 UI 為有 `dist` 時送 React、否則 fallback；拿掉「dist 尚未建置」與過時的 `/config`、測試筆數、目錄結構（issue #16）。
+
 ## [0.2.0] - 2026-09-18
 
 ### 新增
