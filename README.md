@@ -54,7 +54,7 @@ npm start
 
 - `rootDir`
 - pi 路徑（`pi` 或絕對路徑）
-- prompt 樣板
+- prompt 樣板（可多筆、選預設；頂部可選本次優化用哪一個）
 - timeout（秒）
 - pi 併發（1–4，預設 2）
 

@@ -177,6 +177,8 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
   const [rootDir, setRootDir] = useState('');
   const [piPath, setPiPath] = useState('');
   const [promptTemplate, setPromptTemplate] = useState('');
+  const [templates, setTemplates] = useState<{ id: string; name: string; body: string }[]>([]);
+  const [activePromptId, setActivePromptId] = useState('default');
   const [timeout, setTimeoutSec] = useState('600');
   const [piConcurrency, setPiConcurrency] = useState('2');
 
@@ -187,6 +189,11 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
         setRootDir(c.rootDir || '');
         setPiPath(c.piPath || 'pi');
         setPromptTemplate(c.promptTemplate || '');
+        const tpls = c.promptTemplates?.length
+          ? c.promptTemplates
+          : [{ id: 'default', name: '預設', body: c.promptTemplate || '' }];
+        setTemplates(tpls);
+        setActivePromptId(c.activePromptId || tpls[0].id);
         setTimeoutSec(String(c.timeout ?? 600));
         setPiConcurrency(String(c.piConcurrency ?? 2));
       })
@@ -202,6 +209,8 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           rootDir,
           piPath,
           promptTemplate,
+          promptTemplates: templates,
+          activePromptId,
           timeout: Number(timeout),
           piConcurrency: Number(piConcurrency),
         }),
@@ -238,9 +247,62 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
         <input id="cfgPiPath" value={piPath} onChange={(e) => setPiPath(e.target.value)} />
       </div>
       <div className="field">
-        <label htmlFor="cfgPrompt">指令樣板</label>
-        <textarea id="cfgPrompt" value={promptTemplate} onChange={(e) => setPromptTemplate(e.target.value)} />
+        <label htmlFor="cfgActivePrompt">預設樣板</label>
+        <select id="cfgActivePrompt" value={activePromptId} onChange={(e) => setActivePromptId(e.target.value)}>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
+      {templates.map((t, i) => (
+        <div className="field" key={t.id}>
+          <label htmlFor={'cfgPromptName-' + t.id}>樣板名稱</label>
+          <input
+            id={'cfgPromptName-' + t.id}
+            value={t.name}
+            onChange={(e) => {
+              const next = templates.slice();
+              next[i] = { ...t, name: e.target.value };
+              setTemplates(next);
+            }}
+          />
+          <label htmlFor={t.id === activePromptId ? 'cfgPrompt' : 'cfgPrompt-' + t.id}>指令</label>
+          <textarea
+            id={t.id === activePromptId ? 'cfgPrompt' : 'cfgPrompt-' + t.id}
+            value={t.body}
+            onChange={(e) => {
+              const next = templates.slice();
+              next[i] = { ...t, body: e.target.value };
+              setTemplates(next);
+              if (t.id === activePromptId) setPromptTemplate(e.target.value);
+            }}
+          />
+          {templates.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = templates.filter((x) => x.id !== t.id);
+                setTemplates(next);
+                if (activePromptId === t.id) setActivePromptId(next[0].id);
+              }}
+            >
+              刪除此樣板
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        id="btnAddPrompt"
+        onClick={() => {
+          const id = 'p-' + Date.now().toString(36);
+          setTemplates([...templates, { id, name: '新樣板', body: '{repoPath} {branch}' }]);
+        }}
+      >
+        新增樣板
+      </button>
       <div className="field">
         <label htmlFor="cfgTimeout">timeout（秒）</label>
         <input id="cfgTimeout" type="number" value={timeout} onChange={(e) => setTimeoutSec(e.target.value)} />

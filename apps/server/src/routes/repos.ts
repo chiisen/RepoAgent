@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
 import { randomUUID } from 'node:crypto';
-import { createJob, startJob, getActiveJobForRepo, listActiveJobs, getPiConcurrency, DEFAULT_PROMPT_TEMPLATE } from '../optimizer.js';
+import { createJob, startJob, getActiveJobForRepo, listActiveJobs, getPiConcurrency } from '../optimizer.js';
+import { resolveOptimizePrompt } from '../config.js';
 import { lastOutputLine, pullFastForward } from '../pull.js';
 import { refreshRepo } from '../scanner.js';
 
@@ -79,9 +80,12 @@ export function createReposRouter(db: DatabaseSync): Router {
         limit,
       });
     }
-    const custom = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
-    const prompt = custom
-      || DEFAULT_PROMPT_TEMPLATE.replace('{repoPath}', repo.path).replace('{branch}', repo.branch);
+    let prompt: string;
+    try {
+      prompt = resolveOptimizePrompt(repo.path, repo.branch || '', req.body || {}).prompt;
+    } catch (e) {
+      return res.status(400).json({ error: String((e as Error).message || e) });
+    }
     const job = createJob(repo.path, prompt);
     startJob(job, db);
     res.status(202).json({ job });

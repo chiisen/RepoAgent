@@ -12,6 +12,9 @@ type Props = {
   onFilter: (v: string) => void;
   onSort: (v: string) => void;
   onSettings: () => void;
+  promptId: string;
+  promptTemplates: { id: string; name: string }[];
+  onPromptId: (v: string) => void;
 };
 
 export function Header(p: Props) {
@@ -48,6 +51,15 @@ export function Header(p: Props) {
       <button type="button" id="btnSettings" onClick={p.onSettings}>
         設定
       </button>
+      {p.promptTemplates.length > 0 && (
+        <select id="optPrompt" value={p.promptId} onChange={(e) => p.onPromptId(e.target.value)} title="優化樣板">
+          {p.promptTemplates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      )}
       <span id="repoCount">{p.repoCount} 個專案</span>
       <input id="q" placeholder="搜尋名稱" value={p.q} onChange={(e) => p.onQ(e.target.value)} />
       <select id="filter" value={p.filter} onChange={(e) => p.onFilter(e.target.value)}>

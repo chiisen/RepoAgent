@@ -25,6 +25,8 @@ export function App() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [jobsByPath, setJobsByPath] = useState<Record<string, string>>({});
   const [jobExtraLog, setJobExtraLog] = useState('');
+  const [promptId, setPromptId] = useState('default');
+  const [promptTemplates, setPromptTemplates] = useState<{ id: string; name: string }[]>([]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toast = useCallback((m: string) => {
@@ -76,6 +78,10 @@ export function App() {
     api<Config>('/api/config')
       .then((c) => {
         if (c.rootDir) setRootDir(normalizeRootDirInput(c.rootDir));
+        if (c.promptTemplates?.length) {
+          setPromptTemplates(c.promptTemplates.map((t) => ({ id: t.id, name: t.name })));
+          setPromptId(c.activePromptId || c.promptTemplates[0].id);
+        }
         return loadRepos();
       })
       .then(() =>
@@ -180,7 +186,7 @@ export function App() {
       const r = await api<{ job: { id: string; repoId: string } }>('/api/repos/' + id + '/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify({ promptId }),
       });
       toast('已排程 job ' + r.job.id);
       setJobsByPath((prev) => ({ ...prev, [r.job.repoId || repoPath]: r.job.id }));
@@ -221,6 +227,9 @@ export function App() {
         onFilter={setFilter}
         onSort={setSort}
         onSettings={() => setDrawer({ kind: 'settings' })}
+        promptId={promptId}
+        promptTemplates={promptTemplates}
+        onPromptId={setPromptId}
       />
       <RepoGrid
         repos={repos}

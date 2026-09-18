@@ -1,23 +1,26 @@
 import { Router, Request, Response } from 'express';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { configStore, saveConfig, normalizeRootDir } from '../config.js';
+import { configStore, saveConfig, normalizeRootDir, ensurePromptTemplates, parsePromptTemplates } from '../config.js';
 
 export function createConfigRouter() {
   const router = Router();
 
   router.get('/', (req: Request, res: Response) => {
+    ensurePromptTemplates(configStore);
     res.json({
       rootDir: configStore.rootDir,
       piPath: configStore.piPath,
       promptTemplate: configStore.promptTemplate,
+      promptTemplates: configStore.promptTemplates,
+      activePromptId: configStore.activePromptId,
       timeout: configStore.timeout,
       piConcurrency: configStore.piConcurrency,
     });
   });
 
   router.put('/', (req: Request, res: Response) => {
-    const { rootDir, piPath, promptTemplate, timeout, piConcurrency } = req.body;
+    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency } = req.body;
 
     if (rootDir !== undefined) {
       try {
@@ -39,7 +42,23 @@ export function createConfigRouter() {
 
     if (rootDir !== undefined) configStore.rootDir = req.body.rootDir as string;
     if (piPath !== undefined) configStore.piPath = piPath;
-    if (promptTemplate !== undefined) configStore.promptTemplate = promptTemplate;
+    if (promptTemplates !== undefined) {
+      try {
+        configStore.promptTemplates = parsePromptTemplates(promptTemplates);
+      } catch (e) {
+        return res.status(400).json({ error: String((e as Error).message || e) });
+      }
+    }
+    if (activePromptId !== undefined) {
+      configStore.activePromptId = String(activePromptId);
+    }
+    if (promptTemplate !== undefined && promptTemplates === undefined) {
+      ensurePromptTemplates(configStore);
+      const active = configStore.promptTemplates.find((t) => t.id === configStore.activePromptId);
+      if (active) active.body = String(promptTemplate);
+      configStore.promptTemplate = String(promptTemplate);
+    }
+    ensurePromptTemplates(configStore);
     if (timeout !== undefined) {
       const n = Number(timeout);
       if (!Number.isInteger(n) || n < 60 || n > 7200) {
@@ -60,6 +79,8 @@ export function createConfigRouter() {
       rootDir: configStore.rootDir,
       piPath: configStore.piPath,
       promptTemplate: configStore.promptTemplate,
+      promptTemplates: configStore.promptTemplates,
+      activePromptId: configStore.activePromptId,
       timeout: configStore.timeout,
       piConcurrency: configStore.piConcurrency,
     });

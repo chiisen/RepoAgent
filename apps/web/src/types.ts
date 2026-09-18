@@ -19,10 +19,14 @@ export type Repo = {
   behind?: number | null;
 };
 
+export type PromptTemplate = { id: string; name: string; body: string };
+
 export type Config = {
   rootDir: string;
   piPath: string;
   promptTemplate: string;
+  promptTemplates?: PromptTemplate[];
+  activePromptId?: string;
   timeout: number;
   piConcurrency: number;
 };
