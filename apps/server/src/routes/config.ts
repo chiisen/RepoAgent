@@ -16,11 +16,13 @@ export function createConfigRouter() {
       activePromptId: configStore.activePromptId,
       timeout: configStore.timeout,
       piConcurrency: configStore.piConcurrency,
+      scanRecursive: configStore.scanRecursive === true,
+      scanDepth: configStore.scanDepth,
     });
   });
 
   router.put('/', (req: Request, res: Response) => {
-    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency } = req.body;
+    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency, scanRecursive, scanDepth } = req.body;
 
     if (rootDir !== undefined) {
       try {
@@ -73,6 +75,16 @@ export function createConfigRouter() {
       }
       configStore.piConcurrency = n;
     }
+    if (scanRecursive !== undefined) {
+      configStore.scanRecursive = Boolean(scanRecursive);
+    }
+    if (scanDepth !== undefined) {
+      const n = Number(scanDepth);
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        return res.status(400).json({ error: `scanDepth must be an integer 1..5, got: ${scanDepth}` });
+      }
+      configStore.scanDepth = n;
+    }
 
     saveConfig();
     res.json({
@@ -83,6 +95,8 @@ export function createConfigRouter() {
       activePromptId: configStore.activePromptId,
       timeout: configStore.timeout,
       piConcurrency: configStore.piConcurrency,
+      scanRecursive: configStore.scanRecursive === true,
+      scanDepth: configStore.scanDepth,
     });
   });
 

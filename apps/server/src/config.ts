@@ -16,6 +16,8 @@ export interface ConfigStore {
   activePromptId: string;
   timeout: number;
   piConcurrency: number;
+  scanRecursive: boolean;
+  scanDepth: number;
 }
 
 export const defaults = {
@@ -33,6 +35,8 @@ export const defaults = {
   activePromptId: 'default',
   timeout: 1800,
   piConcurrency: 2,
+  scanRecursive: false,
+  scanDepth: 3,
 };
 
 let config: ConfigStore = { ...defaults };

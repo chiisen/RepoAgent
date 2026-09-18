@@ -181,6 +181,8 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
   const [activePromptId, setActivePromptId] = useState('default');
   const [timeout, setTimeoutSec] = useState('600');
   const [piConcurrency, setPiConcurrency] = useState('2');
+  const [scanRecursive, setScanRecursive] = useState(false);
+  const [scanDepth, setScanDepth] = useState('3');
 
   useEffect(() => {
     api<Config>('/api/config')
@@ -196,6 +198,8 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
         setActivePromptId(c.activePromptId || tpls[0].id);
         setTimeoutSec(String(c.timeout ?? 600));
         setPiConcurrency(String(c.piConcurrency ?? 2));
+        setScanRecursive(c.scanRecursive === true);
+        setScanDepth(String(c.scanDepth ?? 3));
       })
       .catch((e) => toast(String(e.message || e)));
   }, [toast]);
@@ -213,6 +217,8 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           activePromptId,
           timeout: Number(timeout),
           piConcurrency: Number(piConcurrency),
+          scanRecursive,
+          scanDepth: Number(scanDepth),
         }),
       });
       toast('設定已儲存');
@@ -316,6 +322,29 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           max={4}
           value={piConcurrency}
           onChange={(e) => setPiConcurrency(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="cfgScanRecursive">
+          <input
+            id="cfgScanRecursive"
+            type="checkbox"
+            checked={scanRecursive}
+            onChange={(e) => setScanRecursive(e.target.checked)}
+          />{' '}
+          遞迴掃描（預設關；只掃下一層以外的更深 .git）
+        </label>
+      </div>
+      <div className="field">
+        <label htmlFor="cfgScanDepth">遞迴深度（1–5）</label>
+        <input
+          id="cfgScanDepth"
+          type="number"
+          min={1}
+          max={5}
+          value={scanDepth}
+          disabled={!scanRecursive}
+          onChange={(e) => setScanDepth(e.target.value)}
         />
       </div>
       <button id="btnSaveConfig" type="button" onClick={save}>

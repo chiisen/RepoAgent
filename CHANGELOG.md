@@ -7,6 +7,7 @@
 
 ### 新增
 
+- 可選遞迴掃描：`scanRecursive`（預設 false）與 `scanDepth` 1–5；略過 `node_modules` 等，找到 `.git` 不再往內走（issue #12）。
 - 多 prompt 樣板：`promptTemplates`／`activePromptId`；optimize 可帶 `promptId`；設定可增刪，頂部可選本次樣板（issue #11）。
 - pi 併發上限（設定 `piConcurrency` 1–4，預設 2）：不同 repo 可同時跑，同 repo 或達上限回 409；取消單一 job 不影響其他（issue #10）。
 - 掃描寫入 `remoteUrl`／`ahead`／`behind`（對照本地 tracking ref，不 fetch）；卡片顯示遠端與領先／落後；無 upstream 顯示「無 upstream」（issue #9）。

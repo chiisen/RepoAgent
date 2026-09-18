@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
 import type { Repo } from './db.js';
-import { normalizeRootDir } from './config.js';
+import { configStore, normalizeRootDir } from './config.js';
 
 export type ScanSummary = { scanId: number; rootDir: string; total: number; okCount: number; failCount: number };
 
@@ -28,6 +28,47 @@ function setScanProgress(patch: Partial<ScanProgress>) {
 const SKIP_DIRS = new Set(['node_modules', '.superpowers', '.git']);
 const GIT_TIMEOUT_MS = 12_000;
 const SCAN_CONCURRENCY = 6;
+const MAX_SCAN_DEPTH = 5;
+
+export function getScanRecursive(): boolean {
+  return configStore.scanRecursive === true;
+}
+
+export function getScanDepth(): number {
+  const n = Number(configStore.scanDepth);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_SCAN_DEPTH) return 3;
+  return n;
+}
+
+/** 列出 git 專案路徑。recursive=false 或 depth=1 時與 V1 相同（只掃下一層）。 */
+export function listGitRepos(
+  root: string,
+  recursive = false,
+  maxDepth = 1,
+): { path: string; name: string }[] {
+  const depthCap = recursive ? Math.min(Math.max(1, maxDepth), MAX_SCAN_DEPTH) : 1;
+  const out: { path: string; name: string }[] = [];
+  const walk = (dir: string, depth: number, rel: string) => {
+    let entries: ReturnType<typeof readdirSync>;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || SKIP_DIRS.has(entry.name.toLowerCase())) continue;
+      const p = join(dir, entry.name);
+      const name = rel ? rel + '/' + entry.name : entry.name;
+      if (existsSync(join(p, '.git'))) {
+        out.push({ path: p, name });
+        continue;
+      }
+      if (depth < depthCap) walk(p, depth + 1, name);
+    }
+  };
+  walk(root, 1, '');
+  return out;
+}
 
 // 規格 §4.2：掃描的 git 子進程不得等待憑證輸入。
 // simple-git 3.36 的構造參數 spawnOptions 僅支援 uid/gid（傳 env 會被靜默忽略），
@@ -146,14 +187,11 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
   const r = ins.run(root, startedAt);
   const scanId = Number(r.lastInsertRowid);
 
-  const dirs = readdirSync(root, { withFileTypes: true }).filter((entry) => {
-    if (!entry.isDirectory() || SKIP_DIRS.has(entry.name.toLowerCase())) return false;
-    return existsSync(join(root, entry.name, '.git'));
-  });
+  const dirs = listGitRepos(root, getScanRecursive(), getScanDepth());
   setScanProgress({ total: dirs.length, current: dirs.length ? '' : '無 git 專案' });
 
   const inspected = await mapPool(dirs, SCAN_CONCURRENCY, async (entry) => {
-    const repoPath = join(root, entry.name);
+    const repoPath = entry.path;
     setScanProgress({ current: entry.name });
     try {
       const info = await inspectRepo(repoPath);

@@ -29,6 +29,8 @@ export type Config = {
   activePromptId?: string;
   timeout: number;
   piConcurrency: number;
+  scanRecursive?: boolean;
+  scanDepth?: number;
 };
 
 export type Job = {
