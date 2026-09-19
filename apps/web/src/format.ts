@@ -28,6 +28,16 @@ export function normalizeRootDirInput(s: string): string {
   return t.replace(/[\\/]+$/, '');
 }
 
+export function repoCountText(
+  globalTotal: number,
+  globalDirty: number,
+  viewed: { total: number; dirty: number; active: boolean },
+): string {
+  const base = globalTotal + ' 個專案 · 有變更 ' + globalDirty;
+  if (!viewed.active) return base;
+  return base + ' ｜ 檢視 ' + viewed.total + ' 個（有變更 ' + viewed.dirty + '）';
+}
+
 export function scanCaption(p: { done?: number; total?: number; current?: string } | null): string {
   if (!p) return '掃描中…';
   const n = typeof p.done === 'number' ? p.done : 0;

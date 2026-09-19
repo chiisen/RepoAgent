@@ -24,6 +24,8 @@ export type Repo = {
 
 export type PromptTemplate = { id: string; name: string; body: string };
 
+export type RepoStats = { total: number; dirty: number };
+
 export type Config = {
   rootDir: string;
   piPath: string;

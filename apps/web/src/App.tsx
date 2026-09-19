@@ -4,7 +4,7 @@ import { Header } from './components/Header';
 import { Drawer, type DrawerMode } from './components/Drawer';
 import { RepoGrid } from './components/RepoGrid';
 import { jobEndToast, normalizeRootDirInput, scanCaption } from './format';
-import type { Config, Repo, ScanProgress } from './types';
+import type { Config, Repo, RepoStats, ScanProgress } from './types';
 import { useWs } from './useWs';
 
 const SCAN_FETCH_MS = 90_000;
@@ -14,6 +14,7 @@ export function App() {
   const [rootDir, setRootDir] = useState('');
   const [repos, setRepos] = useState<Repo[]>([]);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<RepoStats | null>(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('name');
@@ -43,11 +44,12 @@ export function App() {
   }, []);
 
   const loadRepos = useCallback(async () => {
-    const data = await api<{ repos: Repo[]; total?: number }>(
+    const data = await api<{ repos: Repo[]; total?: number; stats?: RepoStats }>(
       '/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort,
     );
     setRepos(data.repos);
     setTotal(data.total ?? data.repos.length);
+    if (data.stats) setStats(data.stats);
   }, [q, filter, sort]);
 
   const onJobEnded = useCallback((
@@ -129,6 +131,7 @@ export function App() {
     }
     setRepos([]);
     setTotal(0);
+    setStats(null);
     setScanning(true);
     setScanLabel('掃描中…');
     const ac = new AbortController();
@@ -224,12 +227,16 @@ export function App() {
     }
   };
 
+  const visibleDirty = repos.filter((r) => r.isDirty).length;
+
   return (
     <>
       <Header
         rootDir={rootDir}
         scanning={scanning}
         repoCount={total}
+        stats={stats}
+        visibleDirty={visibleDirty}
         q={q}
         filter={filter}
         sort={sort}
@@ -237,6 +244,7 @@ export function App() {
           setRootDir(v);
           setRepos([]);
           setTotal(0);
+          setStats(null);
         }}
         onRootDirNorm={applyNorm}
         onScan={() => void scanNow()}

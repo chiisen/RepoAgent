@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 列表頂部統計：`GET /api/repos` 新增 `stats`（全庫 `total`／`dirty`，不受搜尋／篩選影響）；React 與 fallback 頂欄顯示「N 個專案 · 有變更 D」，有搜尋或篩選時追加「檢視 n 個（有變更 d）」。
+
 ## [0.3.0] - 2026-09-19
 
 ### 新增

@@ -7,6 +7,7 @@ import {
   jobEndToast,
   lampOf,
   normalizeRootDirInput,
+  repoCountText,
   scanCaption,
   sliceMsg,
   sliceTime,
@@ -76,6 +77,17 @@ describe('scanCaption', () => {
   });
   it('無 progress 時為掃描中', () => {
     expect(scanCaption(null)).toBe('掃描中…');
+  });
+});
+
+describe('repoCountText', () => {
+  it('無篩選只顯示全庫統計', () => {
+    expect(repoCountText(12, 3, { total: 12, dirty: 3, active: false })).toBe('12 個專案 · 有變更 3');
+  });
+  it('有篩選追加檢視數量', () => {
+    expect(repoCountText(12, 3, { total: 5, dirty: 2, active: true })).toBe(
+      '12 個專案 · 有變更 3 ｜ 檢視 5 個（有變更 2）',
+    );
   });
 });
 

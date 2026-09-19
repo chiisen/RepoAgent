@@ -1,7 +1,12 @@
+import { repoCountText } from '../format';
+import type { RepoStats } from '../types';
+
 type Props = {
   rootDir: string;
   scanning: boolean;
   repoCount: number;
+  stats?: RepoStats | null;
+  visibleDirty: number;
   q: string;
   filter: string;
   sort: string;
@@ -60,7 +65,17 @@ export function Header(p: Props) {
           ))}
         </select>
       )}
-      <span id="repoCount">{p.repoCount} 個專案</span>
+      <span id="repoCount">
+        {repoCountText(
+          p.stats?.total ?? p.repoCount,
+          p.stats?.dirty ?? p.visibleDirty,
+          {
+            total: p.repoCount,
+            dirty: p.visibleDirty,
+            active: p.q.trim() !== '' || p.filter !== 'all',
+          },
+        )}
+      </span>
       <input id="q" placeholder="搜尋名稱" value={p.q} onChange={(e) => p.onQ(e.target.value)} />
       <select id="filter" value={p.filter} onChange={(e) => p.onFilter(e.target.value)}>
         <option value="all">全部</option>

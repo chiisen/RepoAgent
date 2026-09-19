@@ -35,7 +35,11 @@ export function createReposRouter(db: DatabaseSync): Router {
     }
 
     const rows = db.prepare(sql).all(...params) as any[];
-    res.json({ repos: rows, total: rows.length });
+    // stats 為全庫統計（不受 q/filter 影響），供頂部顯示「N 個專案 · 有變更 D」
+    const stats = db
+      .prepare('SELECT COUNT(*) AS total, COALESCE(SUM(isDirty), 0) AS dirty FROM repos')
+      .get() as { total: number; dirty: number };
+    res.json({ repos: rows, total: rows.length, stats });
   });
 
   // 詳情：repo 欄位 + status --short 前 50 行 + log5（hash|date|subject）

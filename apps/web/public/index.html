@@ -120,10 +120,22 @@
       else applyRootDirNorm();
       return c;
     }
+    function repoCountText(globalTotal, globalDirty, viewed) {
+      var base = globalTotal + ' 個專案 · 有變更 ' + globalDirty;
+      if (!viewed.active) return base;
+      return base + ' ｜ 檢視 ' + viewed.total + ' 個（有變更 ' + viewed.dirty + '）';
+    }
     async function loadRepos() {
       const q = $('q').value, filter = $('filter').value, sort = $('sort').value;
       const data = await api('/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort);
-      $('repoCount').textContent = (data.total ?? data.repos.length) + ' 個專案';
+      const viewedTotal = data.total ?? data.repos.length;
+      const viewedDirty = data.repos.filter((r) => r.isDirty).length;
+      const g = data.stats || { total: viewedTotal, dirty: viewedDirty };
+      $('repoCount').textContent = repoCountText(g.total, g.dirty, {
+        total: viewedTotal,
+        dirty: viewedDirty,
+        active: q.trim() !== '' || filter !== 'all',
+      });
       $('grid').innerHTML = data.repos.map((r) => {
         const [cls, label] = lamp(r);
         const msg = (r.lastCommitMsg || '').slice(0, 72);
@@ -180,7 +192,7 @@
       $('rootDir').value = rootDir;
       if (!rootDir) throw new Error('請先貼上要掃的目錄');
       $('grid').innerHTML = '';
-      $('repoCount').textContent = '0 個專案';
+      $('repoCount').textContent = '0 個專案 · 有變更 0';
       setScanning(true, '掃描中…');
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), SCAN_FETCH_MS);
@@ -215,7 +227,7 @@
     $('rootDir').addEventListener('change', applyRootDirNorm);
     $('rootDir').addEventListener('input', () => {
       $('grid').innerHTML = '';
-      $('repoCount').textContent = '0 個專案';
+      $('repoCount').textContent = '0 個專案 · 有變更 0';
     });
     ['q', 'filter', 'sort'].forEach((id) => $(id).onchange = () => loadRepos().catch((e) => toast(e.message)));
     $('q').oninput = () => loadRepos().catch((e) => toast(e.message));
