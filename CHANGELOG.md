@@ -21,6 +21,7 @@
 
 ### 變更
 
+- 儀表板改炭黑底＋磷光綠強調（綠色不再鋪滿畫面）；`DESIGN.md` 對齊。燈號綠／蜜黃／陶土，文字雙通道不變。
 - 測試期預設改用簡短 prompt（只回 OK、列根層前 10 檔、不改檔）；正式樣板仍在設定／頂部可選「預設」。
 - 根目錄 `npm run dev`／`build`／`start`／`test`：一鍵起 Vite+Express（issue #15）；Vite 開發時 WS 連 3000。
 - README 對齊 0.2.0：正式 UI 為有 `dist` 時送 React、否則 fallback；拿掉「dist 尚未建置」與過時的 `/config`、測試筆數、目錄結構（issue #16）。
