@@ -20,6 +20,9 @@ export type Repo = {
   remoteUrl: string;
   ahead: number | null;
   behind: number | null;
+  language: string;
+  sizeBytes: number;
+  extrasTruncated: number;
 };
 
 export type Job = {
@@ -67,4 +70,7 @@ function migrateRepos(db: DatabaseSync) {
   if (!names.has('remoteUrl')) db.exec("ALTER TABLE repos ADD COLUMN remoteUrl TEXT NOT NULL DEFAULT ''");
   if (!names.has('ahead')) db.exec('ALTER TABLE repos ADD COLUMN ahead INTEGER');
   if (!names.has('behind')) db.exec('ALTER TABLE repos ADD COLUMN behind INTEGER');
+  if (!names.has('language')) db.exec("ALTER TABLE repos ADD COLUMN language TEXT NOT NULL DEFAULT ''");
+  if (!names.has('sizeBytes')) db.exec('ALTER TABLE repos ADD COLUMN sizeBytes INTEGER NOT NULL DEFAULT 0');
+  if (!names.has('extrasTruncated')) db.exec('ALTER TABLE repos ADD COLUMN extrasTruncated INTEGER NOT NULL DEFAULT 0');
 }

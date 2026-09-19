@@ -1,15 +1,16 @@
-import { lampOf, sliceMsg, sliceTime, trackingLine } from '../format';
+import { activityLabel, formatSize, lampOf, sliceMsg, sliceTime, trackingLine } from '../format';
 import type { Repo } from '../types';
 
 type Props = {
   repo: Repo;
   busy: boolean;
+  extras?: boolean;
   onDetail: () => void;
   onPull: () => void;
   onOpt: () => void;
 };
 
-export function RepoCard({ repo: r, busy, onDetail, onPull, onOpt }: Props) {
+export function RepoCard({ repo: r, busy, extras, onDetail, onPull, onOpt }: Props) {
   const lamp = lampOf(r);
   const msg = sliceMsg(r.lastCommitMsg, 72);
   const t = sliceTime(r.lastCommitTime);
@@ -30,6 +31,17 @@ export function RepoCard({ repo: r, busy, onDetail, onPull, onOpt }: Props) {
         <br />
         狀態 {r.isDirty ? '變更 ' + r.dirtyCount : '乾淨'}
         <br />
+        {extras ? (
+          <>
+            語言 {r.language || '—'}
+            <br />
+            大小 {formatSize(r.sizeBytes)}
+            {r.extrasTruncated ? '（截斷）' : ''}
+            <br />
+            活躍 {activityLabel(r.lastCommitTime)}
+            <br />
+          </>
+        ) : null}
         最後 commit {t} {msg}
         <br />
         上次掃描 {r.lastScannedAt || '—'}

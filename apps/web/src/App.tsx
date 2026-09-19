@@ -28,6 +28,7 @@ export function App() {
   const [jobExtraLog, setJobExtraLog] = useState('');
   const [promptId, setPromptId] = useState('default');
   const [promptTemplates, setPromptTemplates] = useState<{ id: string; name: string }[]>([]);
+  const [extrasEnabled, setExtrasEnabled] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jobToastIds = useRef(new Set<string>());
 
@@ -93,6 +94,7 @@ export function App() {
     api<Config>('/api/config')
       .then((c) => {
         if (c.rootDir) setRootDir(normalizeRootDirInput(c.rootDir));
+        setExtrasEnabled(c.extrasEnabled === true);
         if (c.promptTemplates?.length) {
           setPromptTemplates(c.promptTemplates.map((t) => ({ id: t.id, name: t.name })));
           setPromptId(c.activePromptId || c.promptTemplates[0].id);
@@ -252,6 +254,7 @@ export function App() {
         jobsByPath={jobsByPath}
         onDetail={(id) => setDrawer({ kind: 'detail', id })}
         onPull={(id) => void onPull(id)}
+        extras={extrasEnabled}
         onOpt={(id, name, path) => void onOpt(id, name, path)}
       />
       <div id="scanMask" className={scanning ? 'show' : undefined} aria-live="polite">
@@ -267,6 +270,7 @@ export function App() {
         wsOpen={wsOpen}
         extraLog={jobExtraLog}
         onJobEnded={onJobEnded}
+        onExtras={setExtrasEnabled}
       />
       <div id="toast" className={[toastMsg ? 'show' : '', toastTone ? 'toast-' + toastTone : ''].filter(Boolean).join(' ') || undefined}>
         {toastMsg}

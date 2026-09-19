@@ -5,6 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { simpleGit } from 'simple-git';
 import type { Repo } from './db.js';
 import { configStore, normalizeRootDir } from './config.js';
+import { collectExtras, EXTRAS_TIMEOUT_MS } from './extras.js';
 
 export type ScanSummary = { scanId: number; rootDir: string; total: number; okCount: number; failCount: number };
 
@@ -99,6 +100,7 @@ export async function refreshRepo(db: DatabaseSync, repoPath: string, lastError 
   try {
     const info = await inspectRepo(repoPath);
     const id = await repoId(db, repoPath);
+    const extras = configStore.extrasEnabled ? collectExtras(repoPath, getSkipDirs(), EXTRAS_TIMEOUT_MS) : null;
     upsertRepo(db, {
       id,
       name,
@@ -116,7 +118,10 @@ export async function refreshRepo(db: DatabaseSync, repoPath: string, lastError 
       remoteUrl: info.remoteUrl,
       ahead: info.ahead,
       behind: info.behind,
-    });
+      language: extras?.language ?? '',
+      sizeBytes: extras?.sizeBytes ?? 0,
+      extrasTruncated: extras?.truncated ? 1 : 0,
+    }, Boolean(extras));
   } catch (e) {
     const id = await repoId(db, repoPath);
     db.prepare('UPDATE repos SET name=?, lastScannedAt=?, lastError=? WHERE id=?').run(
@@ -218,6 +223,7 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
       continue;
     }
     const id = await repoId(db, item.repoPath);
+    const extras = configStore.extrasEnabled ? collectExtras(item.repoPath, getSkipDirs(), EXTRAS_TIMEOUT_MS) : null;
     upsertRepo(db, {
       id,
       name: item.entry.name,
@@ -235,7 +241,10 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
       remoteUrl: item.info.remoteUrl,
       ahead: item.info.ahead,
       behind: item.info.behind,
-    });
+      language: extras?.language ?? '',
+      sizeBytes: extras?.sizeBytes ?? 0,
+      extrasTruncated: extras?.truncated ? 1 : 0,
+    }, Boolean(extras));
     okCount++;
   }
 
@@ -262,11 +271,19 @@ async function repoId(db: DatabaseSync, path: string): Promise<string> {
   return id;
 }
 
-function upsertRepo(db: DatabaseSync, row: Repo) {
+function upsertRepo(db: DatabaseSync, row: Repo, writeExtras = false) {
   const has = db.prepare('SELECT 1 FROM repos WHERE path=?').get(row.path);
   if (has) {
     db.prepare('UPDATE repos SET name=?, branch=?, isDirty=?, dirtyCount=?, lastCommitHash=?, lastCommitTime=?, lastCommitMsg=?, lastScannedAt=?, lastError=?, remoteUrl=?, ahead=?, behind=? WHERE path=?').run(row.name, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, row.path);
+    if (writeExtras) {
+      db.prepare('UPDATE repos SET language=?, sizeBytes=?, extrasTruncated=? WHERE path=?').run(
+        row.language || '',
+        row.sizeBytes || 0,
+        row.extrasTruncated || 0,
+        row.path,
+      );
+    }
   } else {
-    db.prepare('INSERT INTO repos(id, name, path, branch, isDirty, dirtyCount, lastCommitHash, lastCommitTime, lastCommitMsg, lastScannedAt, lastError, remoteUrl, ahead, behind) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(row.id, row.name, row.path, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind);
+    db.prepare('INSERT INTO repos(id, name, path, branch, isDirty, dirtyCount, lastCommitHash, lastCommitTime, lastCommitMsg, lastScannedAt, lastError, remoteUrl, ahead, behind, language, sizeBytes, extrasTruncated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(row.id, row.name, row.path, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, writeExtras ? row.language || '' : '', writeExtras ? row.sizeBytes || 0 : 0, writeExtras ? row.extrasTruncated || 0 : 0);
   }
 }

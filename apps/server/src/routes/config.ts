@@ -19,11 +19,12 @@ export function createConfigRouter() {
       scanRecursive: configStore.scanRecursive === true,
       scanDepth: configStore.scanDepth,
       skipDirs: Array.isArray(configStore.skipDirs) ? configStore.skipDirs : [],
+      extrasEnabled: configStore.extrasEnabled === true,
     });
   });
 
   router.put('/', (req: Request, res: Response) => {
-    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency, scanRecursive, scanDepth, skipDirs } = req.body;
+    const { rootDir, piPath, promptTemplate, promptTemplates, activePromptId, timeout, piConcurrency, scanRecursive, scanDepth, skipDirs, extrasEnabled } = req.body;
 
     if (rootDir !== undefined) {
       try {
@@ -93,6 +94,9 @@ export function createConfigRouter() {
         return res.status(400).json({ error: String((e as Error).message || e) });
       }
     }
+    if (extrasEnabled !== undefined) {
+      configStore.extrasEnabled = Boolean(extrasEnabled);
+    }
 
     saveConfig();
     res.json({
@@ -106,6 +110,7 @@ export function createConfigRouter() {
       scanRecursive: configStore.scanRecursive === true,
       scanDepth: configStore.scanDepth,
       skipDirs: Array.isArray(configStore.skipDirs) ? configStore.skipDirs : [],
+      extrasEnabled: configStore.extrasEnabled === true,
     });
   });
 

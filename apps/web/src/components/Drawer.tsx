@@ -16,9 +16,10 @@ type Props = {
   wsOpen: boolean;
   extraLog?: string;
   onJobEnded: (jobId?: string, info?: { status?: string; repoId?: string; repoName?: string }) => void;
+  onExtras?: (v: boolean) => void;
 };
 
-export function Drawer({ mode, onClose, toast, wsOpen, extraLog, onJobEnded }: Props) {
+export function Drawer({ mode, onClose, toast, wsOpen, extraLog, onJobEnded, onExtras }: Props) {
   const open = mode.kind !== 'closed';
   return (
     <aside id="drawer" className={open ? 'open' : undefined}>
@@ -34,7 +35,7 @@ export function Drawer({ mode, onClose, toast, wsOpen, extraLog, onJobEnded }: P
           onJobEnded={onJobEnded}
         />
       )}
-      {mode.kind === 'settings' && <SettingsBody onClose={onClose} toast={toast} />}
+      {mode.kind === 'settings' && <SettingsBody onClose={onClose} toast={toast} onExtras={onExtras} />}
     </aside>
   );
 }
@@ -172,7 +173,15 @@ function JobBody({
   );
 }
 
-function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: string) => void }) {
+function SettingsBody({
+  onClose,
+  toast,
+  onExtras,
+}: {
+  onClose: () => void;
+  toast: (m: string) => void;
+  onExtras?: (v: boolean) => void;
+}) {
   const [cfg, setCfg] = useState<Config | null>(null);
   const [rootDir, setRootDir] = useState('');
   const [piPath, setPiPath] = useState('');
@@ -184,6 +193,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
   const [scanRecursive, setScanRecursive] = useState(false);
   const [scanDepth, setScanDepth] = useState('3');
   const [skipDirsText, setSkipDirsText] = useState('node_modules\n.superpowers');
+  const [extrasEnabled, setExtrasEnabled] = useState(false);
 
   useEffect(() => {
     api<Config>('/api/config')
@@ -202,6 +212,7 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
         setScanRecursive(c.scanRecursive === true);
         setScanDepth(String(c.scanDepth ?? 3));
         setSkipDirsText((c.skipDirs ?? ['node_modules', '.superpowers']).join('\n'));
+        setExtrasEnabled(c.extrasEnabled === true);
       })
       .catch((e) => toast(String(e.message || e)));
   }, [toast]);
@@ -222,9 +233,11 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
           scanRecursive,
           scanDepth: Number(scanDepth),
           skipDirs: skipDirsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+          extrasEnabled,
         }),
       });
-      toast('設定已儲存');
+      onExtras?.(extrasEnabled);
+      toast(extrasEnabled ? '設定已儲存；進階欄位請再按掃描' : '設定已儲存');
     } catch (e) {
       toast(String((e as ApiError).message || e));
     }
@@ -353,6 +366,17 @@ function SettingsBody({ onClose, toast }: { onClose: () => void; toast: (m: stri
       <div className="field">
         <label htmlFor="cfgSkipDirs">掃描黑名單（每行一個目錄名，不含路徑）</label>
         <textarea id="cfgSkipDirs" value={skipDirsText} onChange={(e) => setSkipDirsText(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="cfgExtras">
+          <input
+            id="cfgExtras"
+            type="checkbox"
+            checked={extrasEnabled}
+            onChange={(e) => setExtrasEnabled(e.target.checked)}
+          />{' '}
+          卡片進階欄位（語言／大小／活躍度；掃描時每 repo 最多另計 2 秒，不延長 git 12 秒）
+        </label>
       </div>
       <button id="btnSaveConfig" type="button" onClick={save}>
         儲存

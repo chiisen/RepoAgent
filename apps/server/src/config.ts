@@ -19,6 +19,7 @@ export interface ConfigStore {
   scanRecursive: boolean;
   scanDepth: number;
   skipDirs: string[];
+  extrasEnabled: boolean;
 }
 
 export const defaults = {
@@ -44,6 +45,7 @@ export const defaults = {
   scanRecursive: false,
   scanDepth: 3,
   skipDirs: ['node_modules', '.superpowers'],
+  extrasEnabled: false,
 };
 
 let config: ConfigStore = { ...defaults };

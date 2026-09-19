@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   diffHtml,
+  activityLabel,
+  formatSize,
   jobCls,
   jobEndToast,
   lampOf,
@@ -74,6 +76,26 @@ describe('scanCaption', () => {
   });
   it('無 progress 時為掃描中', () => {
     expect(scanCaption(null)).toBe('掃描中…');
+  });
+});
+
+describe('formatSize', () => {
+  it('格式化位元組', () => {
+    expect(formatSize(0)).toBe('—');
+    expect(formatSize(512)).toBe('512 B');
+    expect(formatSize(2048)).toBe('2 KB');
+    expect(formatSize(2 * 1024 * 1024)).toBe('2 MB');
+  });
+});
+
+describe('activityLabel', () => {
+  it('依最後 commit 分桶', () => {
+    const now = Date.parse('2026-09-19T00:00:00Z');
+    expect(activityLabel('2026-09-18T00:00:00Z', now)).toBe('7 天內');
+    expect(activityLabel('2026-08-25T00:00:00Z', now)).toBe('30 天內');
+    expect(activityLabel('2026-01-01T00:00:00Z', now)).toBe('一年內');
+    expect(activityLabel('2020-01-01T00:00:00Z', now)).toBe('較久');
+    expect(activityLabel('')).toBe('—');
   });
 });
 

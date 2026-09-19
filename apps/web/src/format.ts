@@ -37,6 +37,25 @@ export function scanCaption(p: { done?: number; total?: number; current?: string
   return '掃描中 ' + n + ' / ' + t + cur;
 }
 
+export function formatSize(bytes?: number | null): string {
+  const n = typeof bytes === 'number' ? bytes : 0;
+  if (!n) return '—';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1).replace(/\.0$/, '') + ' KB';
+  return (n / (1024 * 1024)).toFixed(1).replace(/\.0$/, '') + ' MB';
+}
+
+export function activityLabel(iso?: string | null, nowMs = Date.now()): string {
+  if (!iso) return '—';
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '—';
+  const days = (nowMs - t) / 86_400_000;
+  if (days < 7) return '7 天內';
+  if (days < 30) return '30 天內';
+  if (days < 365) return '一年內';
+  return '較久';
+}
+
 export function jobCls(st: string): string {
   return st === 'done' ? 'job-done' : st === 'failed' || st === 'cancelled' ? 'job-failed' : 'job-running';
 }

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { openDb } from '../src/db.js';
 import { scanRoot } from '../src/scanner.js';
+import { configStore } from '../src/config.js';
 
 function git(cwd: string, ...args: string[]) { execFileSync('git', [...args], { cwd, stdio: 'pipe' }); }
 let root = '';
@@ -53,6 +54,23 @@ describe('scanRoot', () => {
     expect(row.branch.length).toBeGreaterThan(0);
     expect(row.lastCommitHash).toHaveLength(40);
     expect(row.lastCommitMsg).toBe('init');
+  });
+  it('extrasEnabled 時寫入 language／sizeBytes，不改 git 12 秒逾時', async () => {
+    writeFileSync(join(root, 'clean-repo', 'main.ts'), 'export {}\n');
+    writeFileSync(join(root, 'clean-repo', 'tsconfig.json'), '{}');
+    configStore.extrasEnabled = true;
+    try {
+      const db = openDb(':memory:');
+      await scanRoot(db, root);
+      const row = db.prepare("SELECT language, sizeBytes FROM repos WHERE name='clean-repo'").get() as {
+        language: string;
+        sizeBytes: number;
+      };
+      expect(row.language).toBe('TypeScript');
+      expect(row.sizeBytes).toBeGreaterThan(10);
+    } finally {
+      configStore.extrasEnabled = false;
+    }
   });
   it('drops repos from a previous rootDir on the next scan', async () => {
     const db = openDb(':memory:');

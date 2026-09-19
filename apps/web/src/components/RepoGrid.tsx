@@ -8,9 +8,10 @@ type Props = {
   onDetail: (id: string) => void;
   onPull: (id: string) => void;
   onOpt: (id: string, name: string, path: string) => void;
+  extras?: boolean;
 };
 
-export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt }: Props) {
+export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt, extras }: Props) {
   if (!repos.length) {
     return (
       <div className="grid" id="grid">
@@ -27,6 +28,7 @@ export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt
           busy={pullingId === r.id || !!jobsByPath[r.path]}
           onDetail={() => onDetail(r.id)}
           onPull={() => onPull(r.id)}
+          extras={extras}
           onOpt={() => onOpt(r.id, r.name, r.path)}
         />
       ))}

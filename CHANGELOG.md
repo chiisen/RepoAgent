@@ -7,6 +7,7 @@
 
 ### 新增
 
+- 卡片進階欄位（issue #14）：語言／目錄大小／活躍度；設定預設關閉，開啟後掃描每 repo 最多另計 2 秒，不放寬 git 12 秒逾時。
 - pi 優化結束 toast 用高對比配色（完成亮綠、失敗亮紅、取消黃）並加粗；抽屜 job 狀態字同色加粗。
 - pi 優化結束時右下角 toast 提醒（完成／失敗／取消，含專案名）；`job:done` 帶 status。
 - 優化 job 執行中每 5 秒心跳（`$ still running`）並沖刷無換行殘行（`$ partial stdout/stderr`），避免 pi 長考時抽屜卡在 spawn 那一行。

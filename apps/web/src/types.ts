@@ -17,6 +17,9 @@ export type Repo = {
   remoteUrl?: string | null;
   ahead?: number | null;
   behind?: number | null;
+  language?: string | null;
+  sizeBytes?: number | null;
+  extrasTruncated?: number | boolean | null;
 };
 
 export type PromptTemplate = { id: string; name: string; body: string };
@@ -32,6 +35,7 @@ export type Config = {
   scanRecursive?: boolean;
   scanDepth?: number;
   skipDirs?: string[];
+  extrasEnabled?: boolean;
 };
 
 export type Job = {
