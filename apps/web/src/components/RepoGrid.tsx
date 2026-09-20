@@ -9,13 +9,14 @@ type Props = {
   onPull: (id: string) => void;
   onOpt: (id: string, name: string, path: string) => void;
   extras?: boolean;
+  scanning?: boolean;
 };
 
-export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt, extras }: Props) {
+export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt, extras, scanning }: Props) {
   if (!repos.length) {
     return (
       <div className="grid" id="grid">
-        <p style={{ padding: 16 }}>尚無專案，請先掃描。</p>
+        {scanning ? null : <p style={{ padding: 16 }}>尚無專案，請先掃描。</p>}
       </div>
     );
   }

@@ -52,9 +52,9 @@
     button:disabled { opacity: 0.55; cursor: not-allowed; }
     .spin { display: inline-block; width: 0.85em; height: 0.85em; margin-right: 6px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #scanMask { display: none; position: fixed; inset: 0; top: 57px; background: var(--overlay); align-items: center; justify-content: center; z-index: 5; }
-    #scanMask.show { display: flex; }
-    #scanMask span { font-size: 16px; background: var(--card); padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border); }
+    .scanbar { display: none; align-items: center; gap: 8px; padding: 8px 20px; font-size: 13px; color: var(--muted); background: var(--surface); border-bottom: 1px solid var(--border); }
+    .scanbar.show { display: flex; }
+    .scanbar .spin { margin-right: 0; }
     @media (max-width: 640px) { #rootDir { min-width: 100%; } .chart { padding: 12px 12px 0; } .bars li { grid-template-columns: minmax(4rem, 8rem) 1fr 2.5rem; } }
   </style>
 </head>
@@ -75,6 +75,7 @@
       <option value="lastCommitTime">最後 commit</option>
     </select>
   </header>
+  <div class="scanbar" id="scanBar" aria-live="polite"><i class="spin"></i><span id="scanLabel">掃描中…</span></div>
   <section class="chart" id="commitChart" aria-label="各專案 commit 次數排行">
     <div class="chart-head">
       <h2 id="chartTitle"></h2>
@@ -90,7 +91,6 @@
     <ol class="bars" id="chartBars"></ol>
   </section>
   <div class="grid" id="grid"></div>
-  <div id="scanMask" aria-live="polite"><span><i class="spin"></i><span id="scanLabel">掃描中…</span></span></div>
   <aside id="drawer"></aside>
   <div id="toast"></div>
   <script>
@@ -177,25 +177,35 @@
       }).join('');
     }
     function renderChart(rows) { commitRanking = rows || []; drawChart(); }
-    async function loadRepos() {
-      const q = $('q').value, filter = $('filter').value, sort = $('sort').value;
-      const data = await api('/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort);
-      const viewedTotal = data.total ?? data.repos.length;
-      const viewedDirty = data.repos.filter((r) => r.isDirty).length;
-      const g = data.stats || { total: viewedTotal, dirty: viewedDirty };
-      $('repoCount').textContent = repoCountText(g.total, g.dirty, {
-        total: viewedTotal,
-        dirty: viewedDirty,
-        active: q.trim() !== '' || filter !== 'all',
+    var repoMap = {};
+    var gStats = { total: 0, dirty: 0 };
+    var vStats = { total: 0, dirty: 0 };
+    function activeFilter() { return $('q').value.trim() !== '' || $('filter').value !== 'all'; }
+    function renderCount() {
+      $('repoCount').textContent = repoCountText(gStats.total, gStats.dirty, {
+        total: vStats.total,
+        dirty: vStats.dirty,
+        active: activeFilter(),
       });
-      renderChart(data.commitRanking);
-      $('grid').innerHTML = data.repos.map((r) => {
-        const [cls, label] = lamp(r);
-        const msg = (r.lastCommitMsg || '').slice(0, 72);
-        const t = r.lastCommitTime ? r.lastCommitTime.slice(0, 16).replace('T', ' ') : '';
-        const pullAt = r.lastPullAt ? r.lastPullAt.slice(0, 16).replace('T', ' ') : '';
-        const pullMsg = (r.lastPullMsg || '').slice(0, 80);
-        return `<article class="card" data-id="${r.id}">
+    }
+    function cmpRepos(sort, a, b) {
+      if (sort === 'lastCommitTime') return String(b.lastCommitTime || '').localeCompare(String(a.lastCommitTime || ''));
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    }
+    function repoVisible(r, q, filter) {
+      q = String(q || '').trim().toLowerCase();
+      if (q && String(r.name || '').toLowerCase().indexOf(q) === -1) return false;
+      if (filter === 'dirty' && !r.isDirty) return false;
+      if (filter === 'clean' && r.isDirty) return false;
+      return true;
+    }
+    function cardHtml(r) {
+      const [cls, label] = lamp(r);
+      const msg = (r.lastCommitMsg || '').slice(0, 72);
+      const t = r.lastCommitTime ? r.lastCommitTime.slice(0, 16).replace('T', ' ') : '';
+      const pullAt = r.lastPullAt ? r.lastPullAt.slice(0, 16).replace('T', ' ') : '';
+      const pullMsg = (r.lastPullMsg || '').slice(0, 80);
+      return `<article class="card" data-id="${r.id}">
           <div class="title"><span>${r.name}</span><span class="${cls}">${label}</span></div>
           <div class="meta">分支 ${r.branch || '—'}<br>
             遠端 ${(r.remoteUrl || '').slice(0, 80) || '—'}<br>
@@ -212,7 +222,45 @@
             <button data-act="opt">用 pi 優化</button>
           </div>
         </article>`;
-      }).join('') || '<p style="padding:16px">尚無專案，請先掃描。</p>';
+    }
+    // 掃描中逐張插入：以 id 取代舊卡片、插在排序位置；不符搜尋／篩選則不插
+    function insertCard(r) {
+      const sort = $('sort').value;
+      repoMap[r.id] = r;
+      const grid = $('grid');
+      const old = grid.querySelector('.card[data-id="' + r.id + '"]');
+      if (old) old.remove();
+      if (!repoVisible(r, $('q').value, $('filter').value)) return;
+      const empty = grid.querySelector('p');
+      if (empty) empty.remove();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = cardHtml(r);
+      const node = tmp.firstElementChild;
+      const before = Array.prototype.find.call(grid.querySelectorAll('.card'), function (el) {
+        const other = repoMap[el.dataset.id];
+        return other && cmpRepos(sort, r, other) < 0;
+      });
+      grid.insertBefore(node, before || null);
+    }
+    function resetRepoState() {
+      repoMap = {};
+      gStats = { total: 0, dirty: 0 };
+      vStats = { total: 0, dirty: 0 };
+      $('grid').innerHTML = '';
+      $('repoCount').textContent = '0 個專案 · 有變更 0';
+    }
+    async function loadRepos() {
+      const q = $('q').value, filter = $('filter').value, sort = $('sort').value;
+      const data = await api('/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort);
+      const viewedTotal = data.total ?? data.repos.length;
+      const viewedDirty = data.repos.filter((r) => r.isDirty).length;
+      gStats = data.stats || { total: viewedTotal, dirty: viewedDirty };
+      vStats = { total: viewedTotal, dirty: viewedDirty };
+      renderCount();
+      renderChart(data.commitRanking);
+      repoMap = {};
+      for (const r of data.repos) repoMap[r.id] = r;
+      $('grid').innerHTML = data.repos.map(cardHtml).join('') || '<p style="padding:16px">尚無專案，請先掃描。</p>';
     }
     let scanning = false;
     function scanCaption(p) {
@@ -229,7 +277,7 @@
       $('rootDir').disabled = on;
       $('btnScan').innerHTML = on ? '<i class="spin"></i>掃描中' : '掃描';
       $('scanLabel').textContent = label || (on ? '掃描中…' : '掃描');
-      $('scanMask').classList.toggle('show', on);
+      $('scanBar').classList.toggle('show', on);
     }
     function normalizeRootDirInput(s) {
       const t = s.trim();
@@ -245,8 +293,7 @@
       const rootDir = normalizeRootDirInput($('rootDir').value);
       $('rootDir').value = rootDir;
       if (!rootDir) throw new Error('請先貼上要掃的目錄');
-      $('grid').innerHTML = '';
-      $('repoCount').textContent = '0 個專案 · 有變更 0';
+      resetRepoState();
       setScanning(true, '掃描中…');
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), SCAN_FETCH_MS);
@@ -280,8 +327,7 @@
     $('rootDir').addEventListener('paste', () => setTimeout(applyRootDirNorm, 0));
     $('rootDir').addEventListener('change', applyRootDirNorm);
     $('rootDir').addEventListener('input', () => {
-      $('grid').innerHTML = '';
-      $('repoCount').textContent = '0 個專案 · 有變更 0';
+      resetRepoState();
     });
     ['q', 'filter', 'sort'].forEach((id) => $(id).onchange = () => loadRepos().catch((e) => toast(e.message)));
     $('q').oninput = () => loadRepos().catch((e) => toast(e.message));
@@ -387,6 +433,17 @@
               : 'pi 優化完成：' + name;
             toast(msg, 8000, m.status === 'failed' ? 'fail' : m.status === 'cancelled' ? 'warn' : 'ok');
           })();
+        } else if (m.type === 'scan:repo') {
+          if (m.repo) {
+            gStats.total++;
+            if (m.repo.isDirty) gStats.dirty++;
+            if (repoVisible(m.repo, $('q').value, $('filter').value)) {
+              vStats.total++;
+              if (m.repo.isDirty) vStats.dirty++;
+            }
+            insertCard(m.repo);
+            renderCount();
+          }
         } else if (m.type === 'scan:done') {
           if (!scanning) {
             toast('掃描完成：' + m.okCount + ' 成功 / ' + m.failCount + ' 失敗');

@@ -14,7 +14,7 @@ export function createScanRouter(db: DatabaseSync): Router {
     const { rootDir } = req.body;
     if (!rootDir) return res.status(400).json({ error: 'rootDir required' });
     try {
-      const summary = await scanRoot(db, rootDir);
+      const summary = await scanRoot(db, rootDir, (repo) => notifyEvent('scan:repo', { repo }));
       notifyEvent('scan:done', { ...summary });
       res.json(summary);
     } catch (e) {

@@ -11,12 +11,15 @@
 - 掃描新增 `commitsToday／commitsWeek／commitsMonth`（`git rev-list --count --since=<日曆起點>`）與 `commitCount`（`git rev-list --count HEAD`），`repos` 增四欄位（含舊庫 migration）。
 - 卡片顯示 `commit 次數`：React 與 fallback 卡片於「最後 commit」下方顯示總 commit 數。
 - 列表頂部統計：`GET /api/repos` 新增 `stats`（全庫 `total`／`dirty`，不受搜尋／篩選影響）；React 與 fallback 頂欄顯示「N 個專案 · 有變更 D」，有搜尋或篩選時追加「檢視 n 個（有變更 d）」。
+- 掃描即時串流顯示：伺服器每掃完一個 repo 即寫入並以 WebSocket 推播 `scan:repo`；React 與 fallback 收到後依目前搜尋／篩選／排序逐張插入卡片並累加統計（不再等掃完才一次出現）。
 
 ### 變更
 
 - 標題列路徑輸入框改為不放大（`flex: 0 1 20rem`），僅維持可縮小，不再吃滿剩餘空間。
 - 代理文件（`AGENTS.md`／`CLAUDE.md`／`GEMINI.md`）新增模組快取約束：自製原生 ESM 開發伺服器每次載入換新 `?v=` 並沿整條 `import` 鏈傳遞同一指紋；Vite 與建置產物沿用既有指紋、勿手動覆寫。
 - 卡片標題下方加分隔線：`.title` 加 `padding-bottom: 8px` 與 `border-bottom: 1px solid var(--border)`（純 CSS、不動 DOM；React 與 fallback 同步）。
+- 掃描改為逐 repo 邊掃邊寫（併發 6），並在掃描開始即刪除非本輪 `rootDir` 的舊列（原本掃完才刪）；換目錄時卡片牆立即歸零後逐張補上。
+- 移除全屏「掃描中」遮罩，改為標題列下方細進度列（沿用 `GET /api/scan/progress` 顯示 `n/total · 目前專案`），掃描期間卡片牆保持可見可捲動。
 
 ### 修正
 

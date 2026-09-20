@@ -70,6 +70,48 @@ export function chartBars(
   return top.map((r) => ({ id: r.id, name: r.name, value: val(r), pct: Math.round((val(r) / max) * 100) }));
 }
 
+export type RepoListItem = {
+  id: string;
+  name?: string | null;
+  isDirty?: boolean | number | null;
+  lastCommitTime?: string | null;
+};
+
+/** 與伺服器 GET /api/repos 的排序一致：名稱升冪／最後 commit 降冪。 */
+export function repoComparator(sort: string): (a: RepoListItem, b: RepoListItem) => number {
+  if (sort === 'lastCommitTime') {
+    return (a, b) => String(b.lastCommitTime || '').localeCompare(String(a.lastCommitTime || ''));
+  }
+  return (a, b) => String(a.name || '').localeCompare(String(b.name || ''));
+}
+
+/** 是否符合目前搜尋字串與乾淨／有變更篩選（對應伺服器 q/filter）。 */
+export function repoVisible(r: RepoListItem, q: string, filter: string): boolean {
+  const needle = q.trim().toLowerCase();
+  if (needle && !String(r.name || '').toLowerCase().includes(needle)) return false;
+  if (filter === 'dirty' && !r.isDirty) return false;
+  if (filter === 'clean' && r.isDirty) return false;
+  return true;
+}
+
+/**
+ * 掃描中逐張插入用：以 id 取代舊項，插入排序位置；不符目前搜尋／篩選則移除。
+ * 回傳同一參考（未變動）時 React 會跳過重繪。
+ */
+export function insertRepo<T extends RepoListItem>(
+  list: T[],
+  repo: T,
+  q: string,
+  filter: string,
+  sort: string,
+): T[] {
+  const rest = list.filter((r) => r.id !== repo.id);
+  if (!repoVisible(repo, q, filter)) return rest.length === list.length ? list : rest;
+  const next = [...rest, repo];
+  next.sort(repoComparator(sort));
+  return next;
+}
+
 export function activityLabel(iso?: string | null, nowMs = Date.now()): string {
   if (!iso) return '—';
   const t = Date.parse(iso);

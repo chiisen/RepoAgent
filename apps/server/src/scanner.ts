@@ -221,81 +221,81 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
   return out;
 }
 
-export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanSummary> {
+export async function scanRoot(
+  db: DatabaseSync,
+  rootDir: string,
+  onRepo?: (repo: Repo) => void,
+): Promise<ScanSummary> {
   const root = normalizeRootDir(rootDir);
   if (!existsSync(root)) throw new Error(`rootDir not found: ${root}`);
   setScanProgress({ running: true, total: 0, done: 0, current: '列目錄…' });
   try {
-  const startedAt = new Date().toISOString();
-  const ins = db.prepare('INSERT INTO scans(rootDir, startedAt) VALUES (?, ?)');
-  const r = ins.run(root, startedAt);
-  const scanId = Number(r.lastInsertRowid);
+    const startedAt = new Date().toISOString();
+    const ins = db.prepare('INSERT INTO scans(rootDir, startedAt) VALUES (?, ?)');
+    const scanId = Number(ins.run(root, startedAt).lastInsertRowid);
 
-  const dirs = listGitRepos(root, getScanRecursive(), getScanDepth());
-  setScanProgress({ total: dirs.length, current: dirs.length ? '' : '無 git 專案' });
+    const dirs = listGitRepos(root, getScanRecursive(), getScanDepth());
+    setScanProgress({ total: dirs.length, current: dirs.length ? '' : '無 git 專案' });
 
-  const inspected = await mapPool(dirs, SCAN_CONCURRENCY, async (entry) => {
-    const repoPath = entry.path;
-    setScanProgress({ current: entry.name });
-    try {
-      const info = await inspectRepo(repoPath);
-      setScanProgress({ done: scanProgress.done + 1 });
-      return { entry, repoPath, info, error: '' };
-    } catch (e) {
-      setScanProgress({ done: scanProgress.done + 1 });
-      return { entry, repoPath, info: undefined, error: String(e).slice(0, 300) };
+    // 先清掉不在本輪的舊列：換 rootDir 時卡片牆立即歸零，新結果再由 onRepo 逐張補上
+    const keep = dirs.map((d) => d.path);
+    if (keep.length === 0) {
+      db.exec('DELETE FROM repos');
+    } else {
+      const ph = keep.map(() => '?').join(',');
+      db.prepare(`DELETE FROM repos WHERE path NOT IN (${ph})`).run(...keep);
     }
-  });
 
-  let okCount = 0, failCount = 0;
-  const now = new Date().toISOString();
-  for (const item of inspected) {
-    if (!item.info) {
-      failCount++;
-      const id = await repoId(db, item.repoPath);
-      db.prepare('UPDATE repos SET name=?, lastScannedAt=?, lastError=? WHERE id=?').run(item.entry.name, now, item.error, id);
-      continue;
-    }
-    const id = await repoId(db, item.repoPath);
-    const extras = configStore.extrasEnabled ? collectExtras(item.repoPath, getSkipDirs(), EXTRAS_TIMEOUT_MS) : null;
-    upsertRepo(db, {
-      id,
-      name: item.entry.name,
-      path: item.repoPath,
-      branch: item.info.branch,
-      isDirty: item.info.isDirty,
-      dirtyCount: item.info.dirtyCount,
-      commitCount: item.info.commitCount,
-      commitsToday: item.info.commitsToday,
-      commitsWeek: item.info.commitsWeek,
-      commitsMonth: item.info.commitsMonth,
-      lastCommitHash: item.info.lastCommitHash,
-      lastCommitTime: item.info.lastCommitTime,
-      lastCommitMsg: item.info.lastCommitMsg,
-      lastScannedAt: now,
-      lastError: '',
-      lastPullAt: '',
-      lastPullMsg: '',
-      remoteUrl: item.info.remoteUrl,
-      ahead: item.info.ahead,
-      behind: item.info.behind,
-      language: extras?.language ?? '',
-      sizeBytes: extras?.sizeBytes ?? 0,
-      extrasTruncated: extras?.truncated ? 1 : 0,
-    }, Boolean(extras));
-    okCount++;
-  }
+    let okCount = 0, failCount = 0;
+    const now = new Date().toISOString();
+    await mapPool(dirs, SCAN_CONCURRENCY, async (entry) => {
+      const repoPath = entry.path;
+      setScanProgress({ current: entry.name });
+      try {
+        const info = await inspectRepo(repoPath);
+        const id = await repoId(db, repoPath);
+        const extras = configStore.extrasEnabled ? collectExtras(repoPath, getSkipDirs(), EXTRAS_TIMEOUT_MS) : null;
+        const row: Repo = {
+          id,
+          name: entry.name,
+          path: repoPath,
+          branch: info.branch,
+          isDirty: info.isDirty,
+          dirtyCount: info.dirtyCount,
+          commitCount: info.commitCount,
+          commitsToday: info.commitsToday,
+          commitsWeek: info.commitsWeek,
+          commitsMonth: info.commitsMonth,
+          lastCommitHash: info.lastCommitHash,
+          lastCommitTime: info.lastCommitTime,
+          lastCommitMsg: info.lastCommitMsg,
+          lastScannedAt: now,
+          lastError: '',
+          lastPullAt: '',
+          lastPullMsg: '',
+          remoteUrl: info.remoteUrl,
+          ahead: info.ahead,
+          behind: info.behind,
+          language: extras?.language ?? '',
+          sizeBytes: extras?.sizeBytes ?? 0,
+          extrasTruncated: extras?.truncated ? 1 : 0,
+        };
+        upsertRepo(db, row, Boolean(extras));
+        okCount++;
+        onRepo?.(row);
+      } catch (e) {
+        failCount++;
+        const id = await repoId(db, repoPath);
+        db.prepare('UPDATE repos SET name=?, lastScannedAt=?, lastError=? WHERE id=?').run(entry.name, now, String(e).slice(0, 300), id);
+        onRepo?.(db.prepare('SELECT * FROM repos WHERE id=?').get(id) as Repo);
+      } finally {
+        setScanProgress({ done: scanProgress.done + 1 });
+      }
+    });
 
-  const total = dirs.length;
-  const keep = inspected.map((item) => item.repoPath);
-  if (keep.length === 0) {
-    db.exec('DELETE FROM repos');
-  } else {
-    const ph = keep.map(() => '?').join(',');
-    db.prepare(`DELETE FROM repos WHERE path NOT IN (${ph})`).run(...keep);
-  }
-  db.prepare('UPDATE scans SET finishedAt=?, total=?, okCount=?, failCount=? WHERE id=?').run(new Date().toISOString(), total, okCount, failCount, scanId);
-  return { scanId, rootDir: root, total, okCount, failCount };
+    const total = dirs.length;
+    db.prepare('UPDATE scans SET finishedAt=?, total=?, okCount=?, failCount=? WHERE id=?').run(new Date().toISOString(), total, okCount, failCount, scanId);
+    return { scanId, rootDir: root, total, okCount, failCount };
   } finally {
     setScanProgress({ running: false, current: '' });
   }

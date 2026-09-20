@@ -4,11 +4,13 @@ import {
   activityLabel,
   chartBars,
   formatSize,
+  insertRepo,
   jobCls,
   jobEndToast,
   lampOf,
   normalizeRootDirInput,
   repoCountText,
+  repoVisible,
   scanCaption,
   sliceMsg,
   sliceTime,
@@ -128,6 +130,37 @@ describe('chartBars', () => {
     const bars = chartBars([{ id: 'a', name: 'A' }, { id: 'b', name: 'B', commitCount: 4 }]);
     expect(bars.map((b) => b.value)).toEqual([4, 0]);
     expect(bars[0].pct).toBe(100);
+  });
+});
+
+describe('repoVisible / insertRepo', () => {
+  const r = (id: string, name: string, isDirty = 0, lastCommitTime = '') => ({ id, name, isDirty, lastCommitTime });
+  it('搜尋與乾淨／有變更篩選', () => {
+    expect(repoVisible(r('a', 'Alpha', 1), '', 'all')).toBe(true);
+    expect(repoVisible(r('a', 'Alpha', 1), 'alp', 'all')).toBe(true);
+    expect(repoVisible(r('a', 'Alpha', 1), 'beta', 'all')).toBe(false);
+    expect(repoVisible(r('a', 'Alpha', 1), '', 'dirty')).toBe(true);
+    expect(repoVisible(r('a', 'Alpha', 0), '', 'dirty')).toBe(false);
+    expect(repoVisible(r('a', 'Alpha', 1), '', 'clean')).toBe(false);
+  });
+  it('依名稱排序插入並以 id 取代', () => {
+    let list = [r('a', 'A'), r('c', 'C')];
+    list = insertRepo(list, r('b', 'B'), '', 'all', 'name');
+    expect(list.map((x) => x.id)).toEqual(['a', 'b', 'c']);
+    list = insertRepo(list, { id: 'b', name: 'B2', isDirty: 0, lastCommitTime: '' }, '', 'all', 'name');
+    expect(list.filter((x) => x.id === 'b')).toHaveLength(1);
+    expect(list.find((x) => x.id === 'b')?.name).toBe('B2');
+  });
+  it('不符篩選則不插入；已在清單中則移除', () => {
+    const base = [r('a', 'A', 0)];
+    expect(insertRepo(base, r('b', 'B', 1), '', 'clean', 'name')).toBe(base);
+    expect(insertRepo(base, r('a', 'A', 1), '', 'clean', 'name')).toEqual([]);
+  });
+  it('lastCommitTime 降冪', () => {
+    let list: ReturnType<typeof r>[] = [];
+    list = insertRepo(list, r('a', 'A', 0, '2026-01-01'), '', 'all', 'lastCommitTime');
+    list = insertRepo(list, r('b', 'B', 0, '2026-09-01'), '', 'all', 'lastCommitTime');
+    expect(list.map((x) => x.id)).toEqual(['b', 'a']);
   });
 });
 

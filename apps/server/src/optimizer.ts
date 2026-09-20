@@ -145,7 +145,7 @@ function broadcast(msg: object): void {
 }
 
 export function notifyEvent(
-  type: 'job:log' | 'job:done' | 'scan:done',
+  type: 'job:log' | 'job:done' | 'scan:done' | 'scan:repo',
   payload: Record<string, unknown>,
 ): void {
   try {

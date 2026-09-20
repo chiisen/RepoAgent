@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Repo } from './types';
 
 export type WsMsg = {
   type: string;
@@ -8,6 +9,7 @@ export type WsMsg = {
   line?: string;
   okCount?: number;
   failCount?: number;
+  repo?: Repo;
 };
 
 export function useWs(onMsg: (m: WsMsg) => void) {

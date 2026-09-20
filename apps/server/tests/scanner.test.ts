@@ -143,4 +143,14 @@ describe('scanRoot', () => {
       rmSync(other, { recursive: true, force: true });
     }
   });
+  it('邊掃邊寫：每個 repo 寫入後立即回呼 onRepo', async () => {
+    const db = openDb(':memory:');
+    const seen: string[] = [];
+    await scanRoot(db, root, (r) => {
+      const row = db.prepare('SELECT name FROM repos WHERE id=?').get(r.id) as { name: string } | undefined;
+      expect(row?.name).toBe(r.name);
+      seen.push(r.name);
+    });
+    expect(seen.sort()).toEqual(['clean-repo', 'dirty-repo']);
+  });
 });

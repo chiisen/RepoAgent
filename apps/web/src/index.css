@@ -202,24 +202,17 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   vertical-align: -2px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-#scanMask {
-  display: none;
-  position: fixed;
-  inset: 0;
-  top: 57px;
-  background: var(--overlay);
+.scanbar {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 5;
+  gap: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
-#scanMask.show { display: flex; }
-#scanMask span {
-  font-size: 16px;
-  background: var(--card);
-  padding: 16px 20px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
+.scanbar .spin { margin-right: 0; }
 .field { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .field label { font-size: 14px; color: var(--muted); }
 .field textarea { min-height: 8rem; font-family: inherit; }

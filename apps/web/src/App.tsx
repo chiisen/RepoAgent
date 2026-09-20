@@ -4,7 +4,7 @@ import { Header } from './components/Header';
 import { CommitChart } from './components/CommitChart';
 import { Drawer, type DrawerMode } from './components/Drawer';
 import { RepoGrid } from './components/RepoGrid';
-import { jobEndToast, normalizeRootDirInput, scanCaption } from './format';
+import { insertRepo, jobEndToast, normalizeRootDirInput, scanCaption } from './format';
 import type { CommitRank, Config, Repo, RepoStats, ScanProgress } from './types';
 import { useWs } from './useWs';
 
@@ -14,7 +14,6 @@ const PULL_FETCH_MS = 30_000;
 export function App() {
   const [rootDir, setRootDir] = useState('');
   const [repos, setRepos] = useState<Repo[]>([]);
-  const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<RepoStats | null>(null);
   const [commitRanking, setCommitRanking] = useState<CommitRank[]>([]);
   const [q, setQ] = useState('');
@@ -50,7 +49,6 @@ export function App() {
       '/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort,
     );
     setRepos(data.repos);
-    setTotal(data.total ?? data.repos.length);
     if (data.stats) setStats(data.stats);
     setCommitRanking(data.commitRanking ?? []);
   }, [q, filter, sort]);
@@ -87,6 +85,15 @@ export function App() {
     } else if (m.type === 'job:done') {
       if (m.jobId) onJobEnded(m.jobId, { status: m.status, repoId: m.repoId });
       else void loadRepos().catch(() => {});
+    } else if (m.type === 'scan:repo') {
+      const repo = m.repo;
+      if (repo) {
+        setRepos((prev) => insertRepo(prev, repo, q, filter, sort));
+        setStats((prev) => ({
+          total: (prev?.total ?? 0) + 1,
+          dirty: (prev?.dirty ?? 0) + (repo.isDirty ? 1 : 0),
+        }));
+      }
     } else if (m.type === 'scan:done') {
       if (!scanning) {
         toast('掃描完成：' + m.okCount + ' 成功 / ' + m.failCount + ' 失敗');
@@ -133,8 +140,7 @@ export function App() {
       return;
     }
     setRepos([]);
-    setTotal(0);
-    setStats(null);
+    setStats({ total: 0, dirty: 0 });
     setCommitRanking([]);
     setScanning(true);
     setScanLabel('掃描中…');
@@ -238,7 +244,7 @@ export function App() {
       <Header
         rootDir={rootDir}
         scanning={scanning}
-        repoCount={total}
+        repoCount={repos.length}
         stats={stats}
         visibleDirty={visibleDirty}
         q={q}
@@ -247,7 +253,6 @@ export function App() {
         onRootDir={(v) => {
           setRootDir(v);
           setRepos([]);
-          setTotal(0);
           setStats(null);
           setCommitRanking([]);
         }}
@@ -261,6 +266,12 @@ export function App() {
         promptTemplates={promptTemplates}
         onPromptId={setPromptId}
       />
+      {scanning && (
+        <div className="scanbar" aria-live="polite">
+          <i className="spin" />
+          <span id="scanLabel">{scanLabel}</span>
+        </div>
+      )}
       <CommitChart rows={commitRanking} />
       <RepoGrid
         repos={repos}
@@ -269,14 +280,9 @@ export function App() {
         onDetail={(id) => setDrawer({ kind: 'detail', id })}
         onPull={(id) => void onPull(id)}
         extras={extrasEnabled}
+        scanning={scanning}
         onOpt={(id, name, path) => void onOpt(id, name, path)}
       />
-      <div id="scanMask" className={scanning ? 'show' : undefined} aria-live="polite">
-        <span>
-          <i className="spin" />
-          <span id="scanLabel">{scanLabel}</span>
-        </span>
-      </div>
       <Drawer
         mode={drawer}
         onClose={() => setDrawer({ kind: 'closed' })}
