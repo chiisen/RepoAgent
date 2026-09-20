@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
-import { openDb, needsCommitStatsBackfill, markCommitStatsBackfilled } from '../src/db.js';
+import { openDb, needsCommitStatsBackfill, markCommitStatsBackfilled, lastScanRootDir } from '../src/db.js';
 
 describe('db schema', () => {
   it('creates repos, scans, jobs tables', () => {
@@ -54,6 +54,18 @@ describe('db schema', () => {
       }
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('lastScanRootDir 取本 DB 最後一筆掃描目錄', () => {
+    const db = openDb(':memory:');
+    try {
+      expect(lastScanRootDir(db)).toBe('');
+      db.prepare("INSERT INTO scans(rootDir, startedAt) VALUES('D:/a', '2026-01-01')").run();
+      db.prepare("INSERT INTO scans(rootDir, startedAt) VALUES('D:/b', '2026-01-02')").run();
+      expect(lastScanRootDir(db)).toBe('D:/b');
+    } finally {
+      db.close();
     }
   });
 });

@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { createApp, findIndexHtml } from './app.js';
-import { defaultDbPath, openDb, needsCommitStatsBackfill, markCommitStatsBackfilled } from './db.js';
+import { defaultDbPath, openDb, needsCommitStatsBackfill, markCommitStatsBackfilled, lastScanRootDir } from './db.js';
 import { initOptimizer, notifyEvent } from './optimizer.js';
 import { scanRoot } from './scanner.js';
-import { configStore } from './config.js';
 
 const PORT = process.env.PORT || 3000;
 const dbPath = process.env.REPOAGENT_DB || defaultDbPath();
@@ -24,8 +23,9 @@ initOptimizer(wss, db);
 console.log('WS: attached');
 
 // 舊庫升級：commit 時間窗欄位為 migration 預設 0，需重新掃描回填一次，否則排行只會顯示「總計」。
+// 回填對象用「本 DB 最後一次掃描的 rootDir」，而非共用 config，避免複製／測試 DB 誤掃真實目錄。
 if (needsCommitStatsBackfill(db)) {
-  const { rootDir } = configStore;
+  const rootDir = lastScanRootDir(db);
   const hasRepos = (db.prepare('SELECT COUNT(*) AS n FROM repos').get() as { n: number }).n > 0;
   if (hasRepos && rootDir && existsSync(rootDir)) {
     console.log(`背景回填 commit 時間窗統計：${rootDir}`);

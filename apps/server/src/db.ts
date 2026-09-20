@@ -80,6 +80,14 @@ export function markCommitStatsBackfilled(db: DatabaseSync): void {
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
+/** 本 DB 最後一次掃描使用的 rootDir（無則空字串）；供舊庫回填決定要重掃哪個目錄。 */
+export function lastScanRootDir(db: DatabaseSync): string {
+  const row = db
+    .prepare("SELECT rootDir FROM scans WHERE rootDir <> '' ORDER BY id DESC LIMIT 1")
+    .get() as { rootDir?: string } | undefined;
+  return row?.rootDir ?? '';
+}
+
 function migrateRepos(db: DatabaseSync) {
   const cols = db.prepare('PRAGMA table_info(repos)').all() as { name: string }[];
   const names = new Set(cols.map((c) => c.name));
