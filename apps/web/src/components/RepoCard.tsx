@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { activityLabel, formatSize, lampOf, sliceMsg, sliceTime, trackingLine } from '../format';
 import type { Repo } from '../types';
 
@@ -5,12 +6,12 @@ type Props = {
   repo: Repo;
   busy: boolean;
   extras?: boolean;
-  onDetail: () => void;
-  onPull: () => void;
-  onOpt: () => void;
+  onDetail: (id: string) => void;
+  onPull: (id: string) => void;
+  onOpt: (id: string, name: string, path: string) => void;
 };
 
-export function RepoCard({ repo: r, busy, extras, onDetail, onPull, onOpt }: Props) {
+function RepoCardBase({ repo: r, busy, extras, onDetail, onPull, onOpt }: Props) {
   const lamp = lampOf(r);
   const msg = sliceMsg(r.lastCommitMsg, 72);
   const t = sliceTime(r.lastCommitTime);
@@ -51,16 +52,18 @@ export function RepoCard({ repo: r, busy, extras, onDetail, onPull, onOpt }: Pro
         最後更新 <span className="pull-time">{pullAt || '—'}</span> <span className="pull-msg">{pullMsg || ''}</span>
       </div>
       <div className="actions">
-        <button data-act="detail" onClick={onDetail}>
+        <button data-act="detail" onClick={() => onDetail(r.id)}>
           詳情
         </button>
-        <button data-act="pull" disabled={busy} onClick={onPull}>
+        <button data-act="pull" disabled={busy} onClick={() => onPull(r.id)}>
           {busy ? '更新中' : '更新'}
         </button>
-        <button data-act="opt" disabled={busy} onClick={onOpt}>
+        <button data-act="opt" disabled={busy} onClick={() => onOpt(r.id, r.name, r.path)}>
           用 pi 優化
         </button>
       </div>
     </article>
   );
 }
+
+export const RepoCard = memo(RepoCardBase);

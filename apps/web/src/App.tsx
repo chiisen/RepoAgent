@@ -182,7 +182,7 @@ export function App() {
     }
   };
 
-  const onPull = async (id: string) => {
+  const onPull = useCallback(async (id: string) => {
     setPullingId(id);
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), PULL_FETCH_MS);
@@ -201,9 +201,9 @@ export function App() {
       clearTimeout(timer);
       setPullingId(null);
     }
-  };
+  }, [toast, loadRepos]);
 
-  const onOpt = async (id: string, name: string, repoPath: string) => {
+  const onOpt = useCallback(async (id: string, name: string, repoPath: string) => {
     const existing = jobsByPath[repoPath];
     if (existing) {
       toast('此專案優化執行中，開啟監控');
@@ -235,7 +235,9 @@ export function App() {
         toast(String((e as Error).message || e));
       }
     }
-  };
+  }, [jobsByPath, promptId, toast]);
+
+  const openDetail = useCallback((id: string) => setDrawer({ kind: 'detail', id }), []);
 
   const visibleDirty = repos.filter((r) => r.isDirty).length;
 
@@ -277,11 +279,11 @@ export function App() {
         repos={repos}
         pullingId={pullingId}
         jobsByPath={jobsByPath}
-        onDetail={(id) => setDrawer({ kind: 'detail', id })}
-        onPull={(id) => void onPull(id)}
+        onDetail={openDetail}
+        onPull={onPull}
         extras={extrasEnabled}
         scanning={scanning}
-        onOpt={(id, name, path) => void onOpt(id, name, path)}
+        onOpt={onOpt}
       />
       <Drawer
         mode={drawer}

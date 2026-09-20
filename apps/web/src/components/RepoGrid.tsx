@@ -27,10 +27,10 @@ export function RepoGrid({ repos, pullingId, jobsByPath, onDetail, onPull, onOpt
           key={r.id}
           repo={r}
           busy={pullingId === r.id || !!jobsByPath[r.path]}
-          onDetail={() => onDetail(r.id)}
-          onPull={() => onPull(r.id)}
           extras={extras}
-          onOpt={() => onOpt(r.id, r.name, r.path)}
+          onDetail={onDetail}
+          onPull={onPull}
+          onOpt={onOpt}
         />
       ))}
     </div>
