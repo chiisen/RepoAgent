@@ -28,6 +28,7 @@ npm run dev
 - `data/config.json`、`data/*.db*` 不納版控。
 - 路徑用 `path.resolve`／spawn args 陣列，支援 Windows 中文與空白路徑。
 - 卡片「更新」僅 `git pull --ff-only`：dirty 跳過、無 upstream 失敗、45 秒逾時；不要做全部 pull 或自動 stash/merge。
+- 模組快取：自製原生 ESM 開發伺服器每次載入換新 `?v=`，並沿整條 `import` 鏈傳遞同一指紋，避免一般分頁卡舊模組；Vite 與建置產物沿用既有指紋，勿手動覆寫。
 
 ## 測試
 
