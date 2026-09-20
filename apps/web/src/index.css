@@ -149,6 +149,8 @@ textarea:focus-visible {
   font-weight: 600;
   font-size: 15px;
   line-height: 1.35;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 .title span:first-child { overflow-wrap: anywhere; }
 .lamp-clean { color: var(--ok); }

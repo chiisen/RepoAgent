@@ -16,6 +16,7 @@
 
 - 標題列路徑輸入框改為不放大（`flex: 0 1 20rem`），僅維持可縮小，不再吃滿剩餘空間。
 - 代理文件（`AGENTS.md`／`CLAUDE.md`／`GEMINI.md`）新增模組快取約束：自製原生 ESM 開發伺服器每次載入換新 `?v=` 並沿整條 `import` 鏈傳遞同一指紋；Vite 與建置產物沿用既有指紋、勿手動覆寫。
+- 卡片標題下方加分隔線：`.title` 加 `padding-bottom: 8px` 與 `border-bottom: 1px solid var(--border)`（純 CSS、不動 DOM；React 與 fallback 同步）。
 
 ### 修正
 
