@@ -27,6 +27,9 @@ beforeAll(async () => {
     git(join(root, name), 'commit', '-m', 'i');
   }
   writeFileSync(join(root, 'dirty-repo', 'f.txt'), 'changed');
+  writeFileSync(join(root, 'clean-repo', 'f2.txt'), 'second');
+  git(join(root, 'clean-repo'), 'add', '.');
+  git(join(root, 'clean-repo'), 'commit', '-m', 'i2');
   db = openDb(':memory:');
   await scanRoot(db, root);
 
@@ -43,7 +46,11 @@ afterAll(async () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-type ListBody = { total: number; stats: { total: number; dirty: number } };
+type ListBody = {
+  total: number;
+  stats: { total: number; dirty: number };
+  commitRanking: { name: string; commitCount: number; commitsToday: number; commitsWeek: number; commitsMonth: number }[];
+};
 
 describe('GET /api/repos stats', () => {
   it('回傳全庫 total 與 dirty', async () => {
@@ -51,6 +58,14 @@ describe('GET /api/repos stats', () => {
     const body = (await res.json()) as ListBody;
     expect(body.total).toBe(2);
     expect(body.stats).toEqual({ total: 2, dirty: 1 });
+  });
+  it('commitRanking 全庫依 commit 數排序，不受篩選影響', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/repos?filter=dirty`);
+    const body = (await res.json()) as ListBody;
+    expect(body.commitRanking.map((r) => r.name)).toEqual(['clean-repo', 'dirty-repo']);
+    expect(body.commitRanking.map((r) => r.commitCount)).toEqual([2, 1]);
+    expect(body.commitRanking.map((r) => r.commitsToday)).toEqual([2, 1]);
+    expect(body.commitRanking.map((r) => r.commitsMonth)).toEqual([2, 1]);
   });
   it('filter 只影響列表，不影響 stats', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/repos?filter=dirty`);

@@ -10,6 +10,10 @@ export type Repo = {
   branch: string;
   isDirty: number;
   dirtyCount: number;
+  commitCount: number;
+  commitsToday: number;
+  commitsWeek: number;
+  commitsMonth: number;
   lastCommitHash: string;
   lastCommitTime: string;
   lastCommitMsg: string;
@@ -46,7 +50,7 @@ export type Scan = {
   failCount: number;
 };
 
-const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS repos(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, branch TEXT NOT NULL DEFAULT '', isDirty INTEGER NOT NULL DEFAULT 0, dirtyCount INTEGER NOT NULL DEFAULT 0, lastCommitHash TEXT NOT NULL DEFAULT '', lastCommitTime TEXT NOT NULL DEFAULT '', lastCommitMsg TEXT NOT NULL DEFAULT '', lastScannedAt TEXT NOT NULL DEFAULT '', lastError TEXT NOT NULL DEFAULT '', lastPullAt TEXT NOT NULL DEFAULT '', lastPullMsg TEXT NOT NULL DEFAULT '', remoteUrl TEXT NOT NULL DEFAULT '', ahead INTEGER, behind INTEGER);
+const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS repos(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, branch TEXT NOT NULL DEFAULT '', isDirty INTEGER NOT NULL DEFAULT 0, dirtyCount INTEGER NOT NULL DEFAULT 0, commitCount INTEGER NOT NULL DEFAULT 0, commitsToday INTEGER NOT NULL DEFAULT 0, commitsWeek INTEGER NOT NULL DEFAULT 0, commitsMonth INTEGER NOT NULL DEFAULT 0, lastCommitHash TEXT NOT NULL DEFAULT '', lastCommitTime TEXT NOT NULL DEFAULT '', lastCommitMsg TEXT NOT NULL DEFAULT '', lastScannedAt TEXT NOT NULL DEFAULT '', lastError TEXT NOT NULL DEFAULT '', lastPullAt TEXT NOT NULL DEFAULT '', lastPullMsg TEXT NOT NULL DEFAULT '', remoteUrl TEXT NOT NULL DEFAULT '', ahead INTEGER, behind INTEGER);
 CREATE TABLE IF NOT EXISTS scans(id INTEGER PRIMARY KEY AUTOINCREMENT, rootDir TEXT NOT NULL, startedAt TEXT NOT NULL, finishedAt TEXT NOT NULL DEFAULT '', total INTEGER NOT NULL DEFAULT 0, okCount INTEGER NOT NULL DEFAULT 0, failCount INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, repoId TEXT NOT NULL, prompt TEXT NOT NULL, status TEXT NOT NULL, logPath TEXT NOT NULL DEFAULT '', exitCode INTEGER, startedAt TEXT NOT NULL, finishedAt TEXT);`;
 
@@ -70,6 +74,10 @@ function migrateRepos(db: DatabaseSync) {
   if (!names.has('remoteUrl')) db.exec("ALTER TABLE repos ADD COLUMN remoteUrl TEXT NOT NULL DEFAULT ''");
   if (!names.has('ahead')) db.exec('ALTER TABLE repos ADD COLUMN ahead INTEGER');
   if (!names.has('behind')) db.exec('ALTER TABLE repos ADD COLUMN behind INTEGER');
+  if (!names.has('commitCount')) db.exec('ALTER TABLE repos ADD COLUMN commitCount INTEGER NOT NULL DEFAULT 0');
+  if (!names.has('commitsToday')) db.exec('ALTER TABLE repos ADD COLUMN commitsToday INTEGER NOT NULL DEFAULT 0');
+  if (!names.has('commitsWeek')) db.exec('ALTER TABLE repos ADD COLUMN commitsWeek INTEGER NOT NULL DEFAULT 0');
+  if (!names.has('commitsMonth')) db.exec('ALTER TABLE repos ADD COLUMN commitsMonth INTEGER NOT NULL DEFAULT 0');
   if (!names.has('language')) db.exec("ALTER TABLE repos ADD COLUMN language TEXT NOT NULL DEFAULT ''");
   if (!names.has('sizeBytes')) db.exec('ALTER TABLE repos ADD COLUMN sizeBytes INTEGER NOT NULL DEFAULT 0');
   if (!names.has('extrasTruncated')) db.exec('ALTER TABLE repos ADD COLUMN extrasTruncated INTEGER NOT NULL DEFAULT 0');

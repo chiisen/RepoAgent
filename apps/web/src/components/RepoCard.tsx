@@ -44,6 +44,8 @@ export function RepoCard({ repo: r, busy, extras, onDetail, onPull, onOpt }: Pro
         ) : null}
         最後 commit {t} {msg}
         <br />
+        commit 次數 {r.commitCount ?? '—'}
+        <br />
         上次掃描 {r.lastScannedAt || '—'}
         <br />
         最後更新 <span className="pull-time">{pullAt || '—'}</span> <span className="pull-msg">{pullMsg || ''}</span>

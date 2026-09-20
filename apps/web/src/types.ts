@@ -7,6 +7,7 @@ export type Repo = {
   branch?: string | null;
   isDirty?: boolean;
   dirtyCount?: number;
+  commitCount?: number | null;
   lastCommitHash?: string | null;
   lastCommitTime?: string | null;
   lastCommitMsg?: string | null;
@@ -25,6 +26,17 @@ export type Repo = {
 export type PromptTemplate = { id: string; name: string; body: string };
 
 export type RepoStats = { total: number; dirty: number };
+
+export type CommitRank = {
+  id: string;
+  name: string;
+  commitCount: number;
+  commitsToday: number;
+  commitsWeek: number;
+  commitsMonth: number;
+};
+
+export type CommitMetric = 'commitCount' | 'commitsToday' | 'commitsWeek' | 'commitsMonth';
 
 export type Config = {
   rootDir: string;

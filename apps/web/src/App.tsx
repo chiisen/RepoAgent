@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
 import { Header } from './components/Header';
+import { CommitChart } from './components/CommitChart';
 import { Drawer, type DrawerMode } from './components/Drawer';
 import { RepoGrid } from './components/RepoGrid';
 import { jobEndToast, normalizeRootDirInput, scanCaption } from './format';
-import type { Config, Repo, RepoStats, ScanProgress } from './types';
+import type { CommitRank, Config, Repo, RepoStats, ScanProgress } from './types';
 import { useWs } from './useWs';
 
 const SCAN_FETCH_MS = 90_000;
@@ -15,6 +16,7 @@ export function App() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<RepoStats | null>(null);
+  const [commitRanking, setCommitRanking] = useState<CommitRank[]>([]);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('name');
@@ -44,12 +46,13 @@ export function App() {
   }, []);
 
   const loadRepos = useCallback(async () => {
-    const data = await api<{ repos: Repo[]; total?: number; stats?: RepoStats }>(
+    const data = await api<{ repos: Repo[]; total?: number; stats?: RepoStats; commitRanking?: CommitRank[] }>(
       '/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort,
     );
     setRepos(data.repos);
     setTotal(data.total ?? data.repos.length);
     if (data.stats) setStats(data.stats);
+    setCommitRanking(data.commitRanking ?? []);
   }, [q, filter, sort]);
 
   const onJobEnded = useCallback((
@@ -132,6 +135,7 @@ export function App() {
     setRepos([]);
     setTotal(0);
     setStats(null);
+    setCommitRanking([]);
     setScanning(true);
     setScanLabel('掃描中…');
     const ac = new AbortController();
@@ -245,6 +249,7 @@ export function App() {
           setRepos([]);
           setTotal(0);
           setStats(null);
+          setCommitRanking([]);
         }}
         onRootDirNorm={applyNorm}
         onScan={() => void scanNow()}
@@ -256,6 +261,7 @@ export function App() {
         promptTemplates={promptTemplates}
         onPromptId={setPromptId}
       />
+      <CommitChart rows={commitRanking} />
       <RepoGrid
         repos={repos}
         pullingId={pullingId}

@@ -39,7 +39,20 @@ export function createReposRouter(db: DatabaseSync): Router {
     const stats = db
       .prepare('SELECT COUNT(*) AS total, COALESCE(SUM(isDirty), 0) AS dirty FROM repos')
       .get() as { total: number; dirty: number };
-    res.json({ repos: rows, total: rows.length, stats });
+    // commitRanking 為全庫 commit 次數排行（不受 q/filter 影響），供頂部長條圖
+    const commitRanking = db
+      .prepare(
+        'SELECT id, name, commitCount, commitsToday, commitsWeek, commitsMonth FROM repos ORDER BY commitCount DESC, name ASC',
+      )
+      .all() as {
+      id: string;
+      name: string;
+      commitCount: number;
+      commitsToday: number;
+      commitsWeek: number;
+      commitsMonth: number;
+    }[];
+    res.json({ repos: rows, total: rows.length, stats, commitRanking });
   });
 
   // 詳情：repo 欄位 + status --short 前 50 行 + log5（hash|date|subject）

@@ -55,6 +55,21 @@ export function formatSize(bytes?: number | null): string {
   return (n / (1024 * 1024)).toFixed(1).replace(/\.0$/, '') + ' MB';
 }
 
+export type ChartBar = { id: string; name: string; value: number; pct: number };
+
+export function chartBars(
+  rows: { id: string; name: string; commitCount?: number | null; commitsToday?: number | null; commitsWeek?: number | null; commitsMonth?: number | null }[],
+  metric: 'commitCount' | 'commitsToday' | 'commitsWeek' | 'commitsMonth' = 'commitCount',
+  limit = 10,
+): ChartBar[] {
+  const val = (r: (typeof rows)[number]) => Number(r[metric]) || 0;
+  const ranked = [...rows].sort((a, b) => val(b) - val(a));
+  const filtered = metric === 'commitCount' ? ranked : ranked.filter((r) => val(r) > 0);
+  const top = filtered.slice(0, Math.max(0, limit));
+  const max = Math.max(1, ...top.map(val));
+  return top.map((r) => ({ id: r.id, name: r.name, value: val(r), pct: Math.round((val(r) / max) * 100) }));
+}
+
 export function activityLabel(iso?: string | null, nowMs = Date.now()): string {
   if (!iso) return '—';
   const t = Date.parse(iso);

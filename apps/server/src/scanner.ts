@@ -36,6 +36,23 @@ const GIT_TIMEOUT_MS = 12_000;
 const SCAN_CONCURRENCY = 6;
 const MAX_SCAN_DEPTH = 5;
 
+export type CommitWindow = 'today' | 'week' | 'month';
+
+/** 日曆制時間窗起點：今日 00:00／本週一 00:00／本月 1 號 00:00（本機時區）。 */
+export function windowStart(kind: CommitWindow, now = new Date()): string {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  if (kind === 'today') return new Date(y, m, d).toISOString();
+  if (kind === 'week') return new Date(y, m, d - ((now.getDay() + 6) % 7)).toISOString();
+  return new Date(y, m, 1).toISOString();
+}
+
+function toCount(raw: string): number {
+  const n = Number(raw.trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function getScanRecursive(): boolean {
   return configStore.scanRecursive === true;
 }
@@ -108,6 +125,10 @@ export async function refreshRepo(db: DatabaseSync, repoPath: string, lastError 
       branch: info.branch,
       isDirty: info.isDirty,
       dirtyCount: info.dirtyCount,
+      commitCount: info.commitCount,
+      commitsToday: info.commitsToday,
+      commitsWeek: info.commitsWeek,
+      commitsMonth: info.commitsMonth,
       lastCommitHash: info.lastCommitHash,
       lastCommitTime: info.lastCommitTime,
       lastCommitMsg: info.lastCommitMsg,
@@ -137,6 +158,10 @@ async function inspectRepo(repoPath: string): Promise<{
   branch: string;
   isDirty: number;
   dirtyCount: number;
+  commitCount: number;
+  commitsToday: number;
+  commitsWeek: number;
+  commitsMonth: number;
   lastCommitHash: string;
   lastCommitTime: string;
   lastCommitMsg: string;
@@ -145,7 +170,8 @@ async function inspectRepo(repoPath: string): Promise<{
   behind: number | null;
 }> {
   const git = gitClient(repoPath);
-  const [branchRaw, porcelain, logOut, remoteUrl, countsRaw] = await Promise.all([
+  const now = new Date();
+  const [branchRaw, porcelain, logOut, remoteUrl, countsRaw, countRaw, todayRaw, weekRaw, monthRaw] = await Promise.all([
     git.raw(['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => ''),
     git.raw(['status', '--porcelain=v1']),
     git.raw(['log', '-1', '--format=%H%x09%aI%x09%s']).catch(() => ''),
@@ -155,6 +181,10 @@ async function inspectRepo(repoPath: string): Promise<{
       return git.raw(['remote', 'get-url', names[0]]).catch(() => '');
     }),
     git.raw(['rev-list', '--left-right', '--count', '@{upstream}...HEAD']).catch(() => ''),
+    git.raw(['rev-list', '--count', 'HEAD']).catch(() => ''),
+    git.raw(['rev-list', '--count', `--since=${windowStart('today', now)}`, 'HEAD']).catch(() => ''),
+    git.raw(['rev-list', '--count', `--since=${windowStart('week', now)}`, 'HEAD']).catch(() => ''),
+    git.raw(['rev-list', '--count', `--since=${windowStart('month', now)}`, 'HEAD']).catch(() => ''),
   ]);
   const dirtyLines = porcelain.split(/\r?\n/).filter((l) => l.length > 0);
   const [hash = '', time = '', ...msg] = logOut.trim().split('\t');
@@ -165,6 +195,10 @@ async function inspectRepo(repoPath: string): Promise<{
     branch: branchRaw.trim(),
     isDirty: dirtyLines.length > 0 ? 1 : 0,
     dirtyCount: dirtyLines.length,
+    commitCount: toCount(countRaw),
+    commitsToday: toCount(todayRaw),
+    commitsWeek: toCount(weekRaw),
+    commitsMonth: toCount(monthRaw),
     lastCommitHash: hash,
     lastCommitTime: time,
     lastCommitMsg: msg.join('\t').trim(),
@@ -231,6 +265,10 @@ export async function scanRoot(db: DatabaseSync, rootDir: string): Promise<ScanS
       branch: item.info.branch,
       isDirty: item.info.isDirty,
       dirtyCount: item.info.dirtyCount,
+      commitCount: item.info.commitCount,
+      commitsToday: item.info.commitsToday,
+      commitsWeek: item.info.commitsWeek,
+      commitsMonth: item.info.commitsMonth,
       lastCommitHash: item.info.lastCommitHash,
       lastCommitTime: item.info.lastCommitTime,
       lastCommitMsg: item.info.lastCommitMsg,
@@ -274,7 +312,7 @@ async function repoId(db: DatabaseSync, path: string): Promise<string> {
 function upsertRepo(db: DatabaseSync, row: Repo, writeExtras = false) {
   const has = db.prepare('SELECT 1 FROM repos WHERE path=?').get(row.path);
   if (has) {
-    db.prepare('UPDATE repos SET name=?, branch=?, isDirty=?, dirtyCount=?, lastCommitHash=?, lastCommitTime=?, lastCommitMsg=?, lastScannedAt=?, lastError=?, remoteUrl=?, ahead=?, behind=? WHERE path=?').run(row.name, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, row.path);
+    db.prepare('UPDATE repos SET name=?, branch=?, isDirty=?, dirtyCount=?, commitCount=?, commitsToday=?, commitsWeek=?, commitsMonth=?, lastCommitHash=?, lastCommitTime=?, lastCommitMsg=?, lastScannedAt=?, lastError=?, remoteUrl=?, ahead=?, behind=? WHERE path=?').run(row.name, row.branch, row.isDirty, row.dirtyCount, row.commitCount, row.commitsToday, row.commitsWeek, row.commitsMonth, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, row.path);
     if (writeExtras) {
       db.prepare('UPDATE repos SET language=?, sizeBytes=?, extrasTruncated=? WHERE path=?').run(
         row.language || '',
@@ -284,6 +322,6 @@ function upsertRepo(db: DatabaseSync, row: Repo, writeExtras = false) {
       );
     }
   } else {
-    db.prepare('INSERT INTO repos(id, name, path, branch, isDirty, dirtyCount, lastCommitHash, lastCommitTime, lastCommitMsg, lastScannedAt, lastError, remoteUrl, ahead, behind, language, sizeBytes, extrasTruncated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(row.id, row.name, row.path, row.branch, row.isDirty, row.dirtyCount, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, writeExtras ? row.language || '' : '', writeExtras ? row.sizeBytes || 0 : 0, writeExtras ? row.extrasTruncated || 0 : 0);
+    db.prepare('INSERT INTO repos(id, name, path, branch, isDirty, dirtyCount, commitCount, commitsToday, commitsWeek, commitsMonth, lastCommitHash, lastCommitTime, lastCommitMsg, lastScannedAt, lastError, remoteUrl, ahead, behind, language, sizeBytes, extrasTruncated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(row.id, row.name, row.path, row.branch, row.isDirty, row.dirtyCount, row.commitCount, row.commitsToday, row.commitsWeek, row.commitsMonth, row.lastCommitHash, row.lastCommitTime, row.lastCommitMsg, row.lastScannedAt, row.lastError, row.remoteUrl, row.ahead, row.behind, writeExtras ? row.language || '' : '', writeExtras ? row.sizeBytes || 0 : 0, writeExtras ? row.extrasTruncated || 0 : 0);
   }
 }

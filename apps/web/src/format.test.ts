@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   diffHtml,
   activityLabel,
+  chartBars,
   formatSize,
   jobCls,
   jobEndToast,
@@ -97,6 +98,36 @@ describe('formatSize', () => {
     expect(formatSize(512)).toBe('512 B');
     expect(formatSize(2048)).toBe('2 KB');
     expect(formatSize(2 * 1024 * 1024)).toBe('2 MB');
+  });
+});
+
+describe('chartBars', () => {
+  const rows = [
+    { id: 'a', name: 'A', commitCount: 100, commitsToday: 0, commitsWeek: 1, commitsMonth: 3 },
+    { id: 'b', name: 'B', commitCount: 50, commitsToday: 2, commitsWeek: 5, commitsMonth: 9 },
+    { id: 'c', name: 'C', commitCount: 10, commitsToday: 0, commitsWeek: 0, commitsMonth: 0 },
+  ];
+  it('總計取前 N 名並以最大值換算長條百分比', () => {
+    const bars = chartBars(rows, 'commitCount', 2);
+    expect(bars.map((b) => b.name)).toEqual(['A', 'B']);
+    expect(bars.map((b) => b.value)).toEqual([100, 50]);
+    expect(bars.map((b) => b.pct)).toEqual([100, 50]);
+  });
+  it('時間窗依該窗數值排序並排除 0', () => {
+    const bars = chartBars(rows, 'commitsMonth');
+    expect(bars.map((b) => b.name)).toEqual(['B', 'A']);
+    expect(bars.map((b) => b.value)).toEqual([9, 3]);
+    expect(bars.map((b) => b.pct)).toEqual([100, 33]);
+    expect(chartBars(rows, 'commitsToday').map((b) => b.name)).toEqual(['B']);
+  });
+  it('全為 0 或空陣列不除以零', () => {
+    expect(chartBars([{ id: 'a', name: 'A', commitCount: 0 }])[0].pct).toBe(0);
+    expect(chartBars([])).toEqual([]);
+  });
+  it('缺欄位視為 0', () => {
+    const bars = chartBars([{ id: 'a', name: 'A' }, { id: 'b', name: 'B', commitCount: 4 }]);
+    expect(bars.map((b) => b.value)).toEqual([4, 0]);
+    expect(bars[0].pct).toBe(100);
   });
 });
 

@@ -14,13 +14,24 @@
     input, select, button { font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input); color: var(--text); }
     button { cursor: pointer; background: var(--btn); min-height: 36px; }
     button:hover:not(:disabled) { background: var(--btn-hover); border-color: var(--accent); }
-    #rootDir { min-width: 28rem; flex: 1; }
+    #rootDir { min-width: 10rem; flex: 0 1 20rem; }
     #repoCount { font-size: 14px; color: var(--muted); white-space: nowrap; }
     #toast { position: fixed; right: 16px; bottom: 16px; background: var(--btn); padding: 12px 16px; border-radius: 8px; display: none; max-width: 420px; border: 1px solid var(--border); font-size: 16px; font-weight: 700; color: var(--text); }
     #toast.toast-ok { color: var(--toast-ok-fg); background: var(--toast-ok-bg); border-color: var(--ok); }
     #toast.toast-fail { color: var(--toast-fail-fg); background: var(--toast-fail-bg); border-color: var(--danger); }
     #toast.toast-warn { color: var(--toast-warn-fg); background: var(--toast-warn-bg); border-color: var(--warn); }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 16px 20px; }
+    .chart { padding: 16px 20px 0; }
+    .chart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .chart h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+    .chart-filter { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+    .chart-filter select { padding: 4px 8px; font-size: 13px; }
+    .bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .bars li { display: grid; grid-template-columns: minmax(6rem, 14rem) 1fr 3.5rem; align-items: center; gap: 10px; font-size: 13px; }
+    .bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+    .bar-track { background: var(--input); border: 1px solid var(--border); border-radius: 6px; height: 14px; overflow: hidden; }
+    .bar-fill { display: block; height: 100%; background: var(--accent); }
+    .bar-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
     .card { background: var(--card); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
     .title { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 15px; }
     .lamp-clean { color: var(--ok); }
@@ -42,7 +53,7 @@
     #scanMask { display: none; position: fixed; inset: 0; top: 57px; background: var(--overlay); align-items: center; justify-content: center; z-index: 5; }
     #scanMask.show { display: flex; }
     #scanMask span { font-size: 16px; background: var(--card); padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border); }
-    @media (max-width: 640px) { #rootDir { min-width: 100%; } }
+    @media (max-width: 640px) { #rootDir { min-width: 100%; } .chart { padding: 12px 12px 0; } .bars li { grid-template-columns: minmax(4rem, 8rem) 1fr 2.5rem; } }
   </style>
 </head>
 <body>
@@ -62,6 +73,20 @@
       <option value="lastCommitTime">最後 commit</option>
     </select>
   </header>
+  <section class="chart" id="commitChart" aria-label="各專案 commit 次數排行">
+    <div class="chart-head">
+      <h2 id="chartTitle"></h2>
+      <label class="chart-filter">排行
+        <select id="chartMetric">
+          <option value="commitCount">總計</option>
+          <option value="commitsToday">今日</option>
+          <option value="commitsWeek">本週</option>
+          <option value="commitsMonth">本月</option>
+        </select>
+      </label>
+    </div>
+    <ol class="bars" id="chartBars"></ol>
+  </section>
   <div class="grid" id="grid"></div>
   <div id="scanMask" aria-live="polite"><span><i class="spin"></i><span id="scanLabel">掃描中…</span></span></div>
   <aside id="drawer"></aside>
@@ -125,6 +150,31 @@
       if (!viewed.active) return base;
       return base + ' ｜ 檢視 ' + viewed.total + ' 個（有變更 ' + viewed.dirty + '）';
     }
+    var COMMIT_CHART_LIMIT = 10;
+    var CHART_METRICS = { commitCount: '總計', commitsToday: '今日', commitsWeek: '本週', commitsMonth: '本月' };
+    var commitRanking = [];
+    function drawChart() {
+      var metric = $('chartMetric').value;
+      var label = CHART_METRICS[metric] || '總計';
+      var val = function (r) { return Number(r[metric]) || 0; };
+      $('commitChart').style.display = commitRanking.length ? '' : 'none';
+      var ranked = commitRanking.slice().sort(function (a, b) { return val(b) - val(a); });
+      if (metric !== 'commitCount') ranked = ranked.filter(function (r) { return val(r) > 0; });
+      var top = ranked.slice(0, COMMIT_CHART_LIMIT);
+      if (!top.length) {
+        $('chartTitle').textContent = label + ' commit：此期間沒有 commit';
+        $('chartBars').innerHTML = '';
+        return;
+      }
+      var max = Math.max.apply(null, [1].concat(top.map(val)));
+      $('chartTitle').textContent = (metric === 'commitCount' ? '' : label + ' ') + 'commit 次數（前 ' + top.length + ' 名）';
+      $('chartBars').innerHTML = top.map(function (r) {
+        var n = val(r);
+        var pct = Math.round((n / max) * 100);
+        return '<li><span class="bar-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span><span class="bar-track"><span class="bar-fill" style="width:' + pct + '%"></span></span><span class="bar-val">' + n + '</span></li>';
+      }).join('');
+    }
+    function renderChart(rows) { commitRanking = rows || []; drawChart(); }
     async function loadRepos() {
       const q = $('q').value, filter = $('filter').value, sort = $('sort').value;
       const data = await api('/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort);
@@ -136,6 +186,7 @@
         dirty: viewedDirty,
         active: q.trim() !== '' || filter !== 'all',
       });
+      renderChart(data.commitRanking);
       $('grid').innerHTML = data.repos.map((r) => {
         const [cls, label] = lamp(r);
         const msg = (r.lastCommitMsg || '').slice(0, 72);
@@ -150,6 +201,7 @@
             狀態 ${r.isDirty ? '變更 ' + r.dirtyCount : '乾淨'}<br>
             ${extrasEnabled ? '語言 ' + (r.language || '—') + '<br>大小 ' + formatSize(r.sizeBytes) + (r.extrasTruncated ? '（截斷）' : '') + '<br>活躍 ' + activityLabel(r.lastCommitTime) + '<br>' : ''}
             最後 commit ${t} ${msg}<br>
+            commit 次數 ${r.commitCount ?? '—'}<br>
             上次掃描 ${r.lastScannedAt || '—'}<br>
             最後更新 <span class="pull-time">${pullAt || '—'}</span> <span class="pull-msg">${pullMsg || ''}</span></div>
           <div class="actions">
@@ -409,6 +461,7 @@
       activeRefresh = refreshJobDrawer;
       restartJobPoll();
     }
+    $('chartMetric').addEventListener('change', drawChart);
     loadConfig().then(loadRepos).catch((e) => toast(e.message));
   </script>
 </body>
