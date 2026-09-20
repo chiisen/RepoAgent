@@ -16,6 +16,10 @@
 
 - 標題列路徑輸入框改為不放大（`flex: 0 1 20rem`），僅維持可縮小，不再吃滿剩餘空間。
 
+### 修正
+
+- e2e `overview.spec.ts`：`pageerror` 亦過濾 Chrome 擴充功能來源（`content_main.js`／`content_guard.js`／`chrome-extension://` 及 `Could not establish connection`），避免沉浸式翻譯等擴充的未捕捉例外誤判為本頁錯誤。
+
 ## [0.3.0] - 2026-09-19
 
 ### 新增

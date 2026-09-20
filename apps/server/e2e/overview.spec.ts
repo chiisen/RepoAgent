@@ -3,7 +3,17 @@ import { test, expect } from '@playwright/test';
 test('總覽頁可開、無本頁例外', async ({ page }) => {
   const pageErrors: string[] = [];
   const pageConsoleErrors: string[] = [];
-  page.on('pageerror', (err) => pageErrors.push(String(err)));
+  page.on('pageerror', (err) => {
+    const text = `${err.message}\n${err.stack ?? ''}`;
+    if (
+      text.includes('content_main.js') ||
+      text.includes('content_guard.js') ||
+      text.includes('chrome-extension://') ||
+      text.includes('Could not establish connection')
+    )
+      return;
+    pageErrors.push(String(err));
+  });
   page.on('console', (msg) => {
     if (msg.type() !== 'error') return;
     const loc = msg.location().url ?? '';
