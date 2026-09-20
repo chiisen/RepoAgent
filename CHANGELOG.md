@@ -19,6 +19,7 @@
 
 ### 修正
 
+- 排行榜切換基準時整頁跳動：非總計基準會濾掉 0 筆專案，長條數由總計 10 根降到本週 7／今日 1／該時間窗全空 0 根，面板高度隨之由 269px 縮到 203／71／43px，下方卡片網格（202 張）整片位移並重新排版重繪（CLS 0.03–0.10、最多位移 214px）。`.chart` 改為保留 10 列滿版高度（`min-height: 253px`＝10×16px＋9×6px 列距，不含 padding-top 16px；React 與 fallback 同修），實測切換後 `gridShift` 由 −198／−214px 歸零、CLS 0，JS 成本不變（1–4ms、無長任務）。
 - 舊庫升級後排行榜只剩「總計」有資料：`repos` 新增的 `commitsToday／commitsWeek／commitsMonth` 由 migration 以預設 0 帶入，未重掃前排行非總計檢視全空。啟動時以 `PRAGMA user_version` 偵測落後，背景重掃一次回填後標記版本（`needsCommitStatsBackfill`／`markCommitStatsBackfilled`），無 repo 或路徑不存在則直接標記；回填失敗不標記，下次啟動重試。
 - e2e `overview.spec.ts`：`pageerror` 亦過濾 Chrome 擴充功能來源（`content_main.js`／`content_guard.js`／`chrome-extension://` 及 `Could not establish connection`），避免沉浸式翻譯等擴充的未捕捉例外誤判為本頁錯誤。
 
