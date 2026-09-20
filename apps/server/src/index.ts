@@ -1,7 +1,10 @@
+import { existsSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { createApp, findIndexHtml } from './app.js';
-import { defaultDbPath, openDb } from './db.js';
-import { initOptimizer } from './optimizer.js';
+import { defaultDbPath, openDb, needsCommitStatsBackfill, markCommitStatsBackfilled } from './db.js';
+import { initOptimizer, notifyEvent } from './optimizer.js';
+import { scanRoot } from './scanner.js';
+import { configStore } from './config.js';
 
 const PORT = process.env.PORT || 3000;
 const dbPath = process.env.REPOAGENT_DB || defaultDbPath();
@@ -19,3 +22,21 @@ const server = app.listen(PORT, () => {
 const wss = new WebSocketServer({ server });
 initOptimizer(wss, db);
 console.log('WS: attached');
+
+// 舊庫升級：commit 時間窗欄位為 migration 預設 0，需重新掃描回填一次，否則排行只會顯示「總計」。
+if (needsCommitStatsBackfill(db)) {
+  const { rootDir } = configStore;
+  const hasRepos = (db.prepare('SELECT COUNT(*) AS n FROM repos').get() as { n: number }).n > 0;
+  if (hasRepos && rootDir && existsSync(rootDir)) {
+    console.log(`背景回填 commit 時間窗統計：${rootDir}`);
+    scanRoot(db, rootDir)
+      .then((summary) => {
+        markCommitStatsBackfilled(db);
+        notifyEvent('scan:done', { ...summary });
+        console.log(`背景回填完成：${summary.okCount}/${summary.total} 個專案`);
+      })
+      .catch((e) => console.error('背景回填失敗，將於下次啟動重試：', e));
+  } else {
+    markCommitStatsBackfilled(db);
+  }
+}

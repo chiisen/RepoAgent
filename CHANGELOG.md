@@ -18,6 +18,7 @@
 
 ### 修正
 
+- 舊庫升級後排行榜只剩「總計」有資料：`repos` 新增的 `commitsToday／commitsWeek／commitsMonth` 由 migration 以預設 0 帶入，未重掃前排行非總計檢視全空。啟動時以 `PRAGMA user_version` 偵測落後，背景重掃一次回填後標記版本（`needsCommitStatsBackfill`／`markCommitStatsBackfilled`），無 repo 或路徑不存在則直接標記；回填失敗不標記，下次啟動重試。
 - e2e `overview.spec.ts`：`pageerror` 亦過濾 Chrome 擴充功能來源（`content_main.js`／`content_guard.js`／`chrome-extension://` 及 `Could not establish connection`），避免沉浸式翻譯等擴充的未捕捉例外誤判為本頁錯誤。
 
 ## [0.3.0] - 2026-09-19

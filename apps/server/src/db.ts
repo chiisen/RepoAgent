@@ -58,12 +58,26 @@ export function defaultDbPath(): string {
   return join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'data', 'repoagent.db');
 }
 
+/** 現行 schema 版本。舊庫升級後據此觸發 commit 時間窗統計回填。 */
+export const SCHEMA_VERSION = 1;
+
 export function openDb(dbPath: string): DatabaseSync {
   if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
   const db = new DatabaseSync(dbPath);
   db.exec(SCHEMA_SQL);
   migrateRepos(db);
   return db;
+}
+
+/** 舊庫是否尚未回填 commit 時間窗統計（回填後呼叫 markCommitStatsBackfilled 才會轉為 false）。 */
+export function needsCommitStatsBackfill(db: DatabaseSync): boolean {
+  const row = db.prepare('PRAGMA user_version').get() as { user_version?: number } | undefined;
+  return Number(row?.user_version ?? 0) < SCHEMA_VERSION;
+}
+
+/** 標記 commit 時間窗統計已回填（或確認無需回填）。 */
+export function markCommitStatsBackfilled(db: DatabaseSync): void {
+  db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
 function migrateRepos(db: DatabaseSync) {

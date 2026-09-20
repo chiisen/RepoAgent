@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { openDb } from '../src/db.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+import { openDb, needsCommitStatsBackfill, markCommitStatsBackfilled } from '../src/db.js';
 
 describe('db schema', () => {
   it('creates repos, scans, jobs tables', () => {
@@ -24,6 +28,32 @@ describe('db schema', () => {
       ).toThrow();
     } finally {
       db.close();
+    }
+  });
+
+  it('舊庫缺 commit 時間窗欄位時補上，並標記需回填一次', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'repoagent-db-'));
+    const p = join(dir, 'old.db');
+    try {
+      const old = new DatabaseSync(p);
+      old.exec(
+        "CREATE TABLE repos(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, branch TEXT NOT NULL DEFAULT '', isDirty INTEGER NOT NULL DEFAULT 0, dirtyCount INTEGER NOT NULL DEFAULT 0, lastCommitHash TEXT NOT NULL DEFAULT '', lastCommitTime TEXT NOT NULL DEFAULT '', lastCommitMsg TEXT NOT NULL DEFAULT '', lastScannedAt TEXT NOT NULL DEFAULT '', lastError TEXT NOT NULL DEFAULT '')",
+      );
+      old.prepare("INSERT INTO repos(id, name, path) VALUES('1', 'a', '/tmp/a')").run();
+      old.close();
+
+      const db = openDb(p);
+      try {
+        const cols = (db.prepare('PRAGMA table_info(repos)').all() as { name: string }[]).map((c) => c.name);
+        expect(cols).toContain('commitsToday');
+        expect(needsCommitStatsBackfill(db)).toBe(true);
+        markCommitStatsBackfilled(db);
+        expect(needsCommitStatsBackfill(db)).toBe(false);
+      } finally {
+        db.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
