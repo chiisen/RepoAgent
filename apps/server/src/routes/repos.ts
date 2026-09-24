@@ -1,132 +1,15 @@
-import { Router, Request, Response } from 'express';
+/**
+ * @deprecated — 保留舊 `createReposRouter(db)` 簽名（測試相容）。
+ * 內部委派給 composition container 的 `createServicesForDb(db)`。
+ */
 import type { DatabaseSync } from 'node:sqlite';
-import { simpleGit } from 'simple-git';
-import { randomUUID } from 'node:crypto';
-import { createJob, startJob, getActiveJobForRepo, listActiveJobs, getPiConcurrency } from '../optimizer.js';
-import { resolveOptimizePrompt } from '../config.js';
-import { lastOutputLine, pullFastForward } from '../pull.js';
-import { refreshRepo } from '../scanner.js';
 
-export function createReposRouter(db: DatabaseSync): Router {
-  const router = Router();
+import { createServicesForDb } from '../composition/container.js';
+import { createReposRouter as _newCreateReposRouter } from './_internal/repos.js';
+import { _setSharedDb } from './jobs.js';
 
-  router.get('/repos', (req: Request, res: Response) => {
-    const { q = '', filter = 'all', sort = 'name' } = req.query;
-    let sql = 'SELECT * FROM repos';
-    const params: any[] = [];
-    const conditions: string[] = [];
-
-    if (q) {
-      conditions.push('name LIKE ?');
-      params.push(`%${q}%`);
-    }
-    if (filter === 'dirty') {
-      conditions.push('isDirty = 1');
-    } else if (filter === 'clean') {
-      conditions.push('isDirty = 0');
-    }
-
-    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
-
-    if (sort === 'lastCommitTime') {
-      sql += ' ORDER BY lastCommitTime DESC';
-    } else {
-      sql += ' ORDER BY name ASC';
-    }
-
-    const rows = db.prepare(sql).all(...params) as any[];
-    // stats 為全庫統計（不受 q/filter 影響），供頂部顯示「N 個專案 · 有變更 D」
-    const stats = db
-      .prepare('SELECT COUNT(*) AS total, COALESCE(SUM(isDirty), 0) AS dirty FROM repos')
-      .get() as { total: number; dirty: number };
-    // commitRanking 為全庫 commit 次數排行（不受 q/filter 影響），供頂部長條圖
-    const commitRanking = db
-      .prepare(
-        'SELECT id, name, commitCount, commitsToday, commitsWeek, commitsMonth FROM repos ORDER BY commitCount DESC, name ASC',
-      )
-      .all() as {
-      id: string;
-      name: string;
-      commitCount: number;
-      commitsToday: number;
-      commitsWeek: number;
-      commitsMonth: number;
-    }[];
-    res.json({ repos: rows, total: rows.length, stats, commitRanking });
-  });
-
-  // 詳情：repo 欄位 + status --short 前 50 行 + log5（hash|date|subject）
-  router.get('/repos/:id', async (req: Request, res: Response) => {
-    const repo = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id) as any;
-    if (!repo) return res.status(404).json({ error: 'repo not found' });
-    try {
-      const git = simpleGit(repo.path);
-      const [short, logOut] = await Promise.all([
-        git.raw(['status', '--short']),
-        git.raw(['log', '-5', '--format=%H|%ad|%s', '--date=iso']),
-      ]);
-      const statusShort = short.split(/\r?\n/).filter((l) => l.length > 0).slice(0, 50);
-      const recentCommits = logOut
-        .split(/\r?\n/)
-        .filter((l) => l.length > 0)
-        .map((l) => {
-          const [hash = '', date = '', ...msg] = l.split('|');
-          return { hash, date, message: msg.join('|') };
-        });
-      res.json({ repo, statusShort, recentCommits });
-    } catch (e) {
-      res.status(500).json({ error: String(e).slice(0, 300) });
-    }
-  });
-
-  // 優化：建 job 並 fire-and-forget。同一 repo 或達 piConcurrency 上限時 409。
-  router.post('/repos/:id/optimize', (req: Request, res: Response) => {
-    const repo = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id) as any;
-    if (!repo) return res.status(404).json({ error: 'repo not found' });
-    const same = getActiveJobForRepo(repo.path);
-    if (same) {
-      return res.status(409).json({
-        error: `此專案已有優化執行中（job ${same.id}）`,
-        jobId: same.id,
-      });
-    }
-    const limit = getPiConcurrency();
-    if (listActiveJobs().length >= limit) {
-      return res.status(409).json({
-        error: `已達 pi 併發上限（${limit}）`,
-        limit,
-      });
-    }
-    let prompt: string;
-    try {
-      prompt = resolveOptimizePrompt(repo.path, repo.branch || '', req.body || {}).prompt;
-    } catch (e) {
-      return res.status(400).json({ error: String((e as Error).message || e) });
-    }
-    const job = createJob(repo.path, prompt);
-    startJob(job, db);
-    res.status(202).json({ job });
-  });
-
-  router.post('/repos/:id/pull', async (req: Request, res: Response) => {
-    const repo = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id) as any;
-    if (!repo) return res.status(404).json({ error: 'repo not found' });
-    try {
-      const result = await pullFastForward(repo.path, randomUUID());
-      await refreshRepo(db, repo.path, result.ok ? '' : result.message);
-      const pullMsg = lastOutputLine(result.message || result.output);
-      db.prepare('UPDATE repos SET lastPullAt=?, lastPullMsg=? WHERE id=?').run(
-        new Date().toISOString(),
-        pullMsg,
-        req.params.id,
-      );
-      const updated = db.prepare('SELECT * FROM repos WHERE id=?').get(req.params.id);
-      const status = result.ok ? 200 : result.code === 'dirty' ? 409 : 400;
-      res.status(status).json({ ...result, repo: updated });
-    } catch (e) {
-      res.status(500).json({ error: String(e).slice(0, 300) });
-    }
-  });
-
-  return router;
+export function createReposRouter(db: DatabaseSync): ReturnType<typeof _newCreateReposRouter> {
+  _setSharedDb(db);
+  const services = createServicesForDb(db);
+  return _newCreateReposRouter(services.repoService);
 }

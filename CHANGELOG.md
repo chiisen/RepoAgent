@@ -7,6 +7,19 @@
 
 ### 新增
 
+- 架構重構為 Clean Architecture 三層 + DI：後端 src/ 拆分為 `domain/`（純型別與介面）、`application/`（業務服務）、`infrastructure/`（SQLite / Git / FS / Process / WS adapters）、`composition/container.ts`（唯一允許 `new` 具體實例的組裝根）、`routes/_internal/`（Controller，建構子注入 service）、`_shims/`（向後相容舊 import）。所有 service 與 controller 透過建構子注入介面（`IRepRepository`、`IGitInspector`、`IPullExecutor`、`IRepoLister`、`IEventBroadcaster`、`IProcessRunner` 等），無硬編碼的 `new` 具體實例。
+- Lint / Formatter 工具：採用 Biome（`@biomejs/biome` 2.5+），新增 `biome.json` 與 `npm run lint`／`npm run format`／`npm run check` 指令，範圍依 `biome.json` 的 `files.includes` 涵蓋 `src`／`tests`／`e2e`，全部零錯誤、零警告；並修正 `biome.json` 已棄用的 `recommended` 為 `preset`、忽略樣式改為 `!dist` 形式。
+
+### 變更
+
+- 舊 `src/{db,scanner,config,extras,pull,optimizer,piHeartbeat,routes/*}.ts` 改為 thin re-export shim（標 `@deprecated`），內部委派給 composition root；93 個測試（17 檔）零行為修改全綠。
+- 測試檔整理以符合 lint／format：修正 import 排序、移除未使用的 `JobStatus` import、`'i' + i` 改樣板字串，並將 3 處 `??=` 塞在表達式內（`noAssignInExpressions`）改為獨立語句；`e2e/` 三檔亦僅做 import 排序與格式化。語意與斷言皆不變。
+- WS 事件型別集中於 `domain/events.ts`（`WS_EVENT.JOB_LOG`／`JOB_DONE`／`SCAN_DONE`／`SCAN_REPO`）取代散落的字串常數。
+- `tsconfig.json` 將 `include` 由 `["src", "tests"]` 改為 `["src"]`：測試改由 vitest 執行期驗證，避免殘留的測試檔型別問題污染 production typecheck。
+- 清除重構殘留的死碼與依賴方向瑕疵：刪除無人引用的 `ContainerTokens`、`sharedContainerFromFile`、`_shims/registry.ts`（含 `setContainer`／`resetContainer`／`containerOrFresh`）、`_shims/routes.ts`、`_shims/heartbeat.ts`（併入 `_shims/piHeartbeat.ts`）與 `container.ts` 尾端無人 import 的 re-export；`app.ts` 改直接依賴 `composition/_sharedContainer.ts`，不再反向 import `_shims/`。
+
+### 新增
+
 - 頂部 commit 次數橫向長條圖與時間窗篩選：`GET /api/repos` 新增 `commitRanking`（全庫，含總計／今日／本週／本月，不受搜尋／篩選影響）；React 與 fallback 於標題列下方顯示前 10 名，可切換排行基準（總計／今日／本週／本月，日曆制、本機時區）。
 - 掃描新增 `commitsToday／commitsWeek／commitsMonth`（`git rev-list --count --since=<日曆起點>`）與 `commitCount`（`git rev-list --count HEAD`），`repos` 增四欄位（含舊庫 migration）。
 - 卡片顯示 `commit 次數`：React 與 fallback 卡片於「最後 commit」下方顯示總 commit 數。
