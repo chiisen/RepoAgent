@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { configStore, defaults, ensurePromptTemplates, parsePromptTemplates, resolveOptimizePrompt } from '../src/config.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  configStore,
+  defaults,
+  ensurePromptTemplates,
+  parsePromptTemplates,
+  resolveOptimizePrompt,
+} from '../src/config.js';
 
 const saved = {
   promptTemplate: configStore.promptTemplate,
@@ -31,7 +37,12 @@ describe('ensurePromptTemplates（issue #11）', () => {
 describe('parsePromptTemplates', () => {
   it('拒絕空陣列與過長', () => {
     expect(() => parsePromptTemplates([])).toThrow(/at least 1/);
-    expect(() => parsePromptTemplates([{ id: 'a', name: 'n', body: 'x' }, ...Array.from({ length: 20 }, (_, i) => ({ id: 'i' + i, name: 'n', body: 'b' }))])).toThrow(/at most 20/);
+    expect(() =>
+      parsePromptTemplates([
+        { id: 'a', name: 'n', body: 'x' },
+        ...Array.from({ length: 20 }, (_, i) => ({ id: `i${i}`, name: 'n', body: 'b' })),
+      ]),
+    ).toThrow(/at most 20/);
   });
   it('接受合法列表', () => {
     const t = parsePromptTemplates([

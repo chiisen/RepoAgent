@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { expect, test } from '@playwright/test';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
@@ -12,7 +12,8 @@ let root = '';
 
 test.beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), 'repoagent-e2e-scan-'));
-  for (const name of ['clean-repo', 'dirty-repo', 'not-a-repo']) mkdirSync(join(root, name), { recursive: true });
+  for (const name of ['clean-repo', 'dirty-repo', 'not-a-repo'])
+    mkdirSync(join(root, name), { recursive: true });
   for (const name of ['clean-repo', 'dirty-repo']) {
     const p = join(root, name);
     git(p, 'init');

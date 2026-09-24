@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getPiHeartbeat, parseSessionStart } from '../src/piHeartbeat.js';
 
 const dirs: string[] = [];
@@ -18,9 +18,7 @@ function makeRoot(): string {
 
 describe('parseSessionStart', () => {
   it('解析檔名前綴時間', () => {
-    expect(parseSessionStart('2026-09-16T23-45-51-900Z_x.jsonl')).toBe(
-      Date.parse('2026-09-16T23:45:51Z'),
-    );
+    expect(parseSessionStart('2026-09-16T23-45-51-900Z_x.jsonl')).toBe(Date.parse('2026-09-16T23:45:51Z'));
   });
   it('格式不符回 NaN', () => {
     expect(parseSessionStart('notes.jsonl')).toBeNaN();

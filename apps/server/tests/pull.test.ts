@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import express from 'express';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDb } from '../src/db.js';
-import { scanRoot } from '../src/scanner.js';
-import { createReposRouter } from '../src/routes/repos.js';
 import { pullFastForward } from '../src/pull.js';
+import { createReposRouter } from '../src/routes/repos.js';
+import { scanRoot } from '../src/scanner.js';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
@@ -121,14 +121,16 @@ describe('POST /api/repos/:id/pull', () => {
 
   it('returns 409 when dirty is not involved; 400 without upstream', async () => {
     const list = await fetch(`http://127.0.0.1:${port}/api/repos`);
-    const body = await list.json() as { repos: { id: string }[] };
-    const res = await fetch(`http://127.0.0.1:${port}/api/repos/${body.repos[0].id}/pull`, { method: 'POST' });
+    const body = (await list.json()) as { repos: { id: string }[] };
+    const res = await fetch(`http://127.0.0.1:${port}/api/repos/${body.repos[0].id}/pull`, {
+      method: 'POST',
+    });
     expect(res.status).toBe(400);
-    const j = await res.json() as { code: string; message: string };
+    const j = (await res.json()) as { code: string; message: string };
     expect(j.code).toBe('no_upstream');
     expect(j.message).toMatch(/upstream/i);
     const again = await fetch(`http://127.0.0.1:${port}/api/repos`);
-    const listed = await again.json() as { repos: { lastPullAt: string; lastPullMsg: string }[] };
+    const listed = (await again.json()) as { repos: { lastPullAt: string; lastPullMsg: string }[] };
     expect(listed.repos[0].lastPullAt).toMatch(/^\d{4}-/);
     expect(listed.repos[0].lastPullMsg).toMatch(/upstream/i);
   });
