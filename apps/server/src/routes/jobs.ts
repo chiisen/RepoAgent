@@ -1,44 +1,20 @@
-import { Router, Request, Response } from 'express';
-import { existsSync, readFileSync } from 'node:fs';
-import { getJobStatus, cancelJob, getJobTimeoutMs, listActiveJobs } from '../optimizer.js';
-import { getPiHeartbeat } from '../piHeartbeat.js';
+/**
+ * @deprecated — 保留舊 `createJobsRouter()` 簽名（測試相容）。
+ */
+import type { DatabaseSync } from 'node:sqlite';
+import { sharedContainer } from '../composition/_sharedContainer.js';
+import { createServicesForDb } from '../composition/container.js';
+import { createJobsRouter as _newCreateJobsRouter } from './_internal/jobs.js';
 
-const LOG_TAIL_LINES = 50;
+let sharedDb: DatabaseSync | null = null;
+/** 測試 setter（createReposRouter 會呼叫，讓後續 createJobsRouter 共用同一個 db）。 */
+export function _setSharedDb(db: DatabaseSync | null): void {
+  sharedDb = db;
+}
 
-export function createJobsRouter(): Router {
-  const router = Router();
-
-  router.get('/jobs', (_req: Request, res: Response) => {
-    res.json({ jobs: listActiveJobs() });
-  });
-
-  // job 狀態 + log 尾 50 行 + pi 心跳 + 逾時秒數
-  router.get('/jobs/:id', (req: Request, res: Response) => {
-    const job = getJobStatus(req.params.id);
-    if (!job) return res.status(404).json({ error: 'job not found' });
-    let logTail: string[] = [];
-    try {
-      if (job.logPath && existsSync(job.logPath)) {
-        const lines = readFileSync(job.logPath, 'utf8').split(/\r?\n/);
-        if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-        logTail = lines.slice(-LOG_TAIL_LINES);
-      }
-    } catch { /* log 讀失敗不影響狀態回傳 */ }
-    res.json({
-      job,
-      logTail,
-      heartbeat: getPiHeartbeat(job.startedAt),
-      timeoutSec: Math.round(getJobTimeoutMs() / 1000),
-    });
-  });
-
-  // 取消：SIGTERM→10s→SIGKILL（見 optimizer.terminate）
-  router.delete('/jobs/:id', (req: Request, res: Response) => {
-    const job = getJobStatus(req.params.id);
-    if (!job) return res.status(404).json({ error: 'job not found' });
-    cancelJob(req.params.id);
-    res.json({ status: 'cancelled', jobId: req.params.id });
-  });
-
-  return router;
+export function createJobsRouter(): ReturnType<typeof _newCreateJobsRouter> {
+  // 若曾由 createReposRouter 設過 sharedDb，沿用；否則用 container 的 db。
+  const db = sharedDb ?? (sharedContainer().db as DatabaseSync);
+  const services = createServicesForDb(db);
+  return _newCreateJobsRouter(services.jobService);
 }

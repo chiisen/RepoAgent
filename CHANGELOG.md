@@ -7,6 +7,30 @@
 
 ### 新增
 
+- 架構重構為 Clean Architecture 三層 + DI：後端 src/ 拆分為 `domain/`（純型別與介面）、`application/`（業務服務）、`infrastructure/`（SQLite / Git / FS / Process / WS adapters）、`composition/container.ts`（唯一允許 `new` 具體實例的組裝根）、`routes/_internal/`（Controller，建構子注入 service）、`_shims/`（向後相容舊 import）。所有 service 與 controller 透過建構子注入介面（`IRepRepository`、`IGitInspector`、`IPullExecutor`、`IRepoLister`、`IEventBroadcaster`、`IProcessRunner` 等），無硬編碼的 `new` 具體實例。
+- Lint / Formatter 工具：採用 Biome（`@biomejs/biome` 2.5+），新增 `biome.json` 與 `npm run lint`／`npm run format`／`npm run check` 指令，範圍依 `biome.json` 的 `files.includes` 涵蓋 `src`／`tests`／`e2e`，全部零錯誤、零警告；並修正 `biome.json` 已棄用的 `recommended` 為 `preset`、忽略樣式改為 `!dist` 形式。
+
+### 變更
+
+- 舊 `src/{db,scanner,config,extras,pull,optimizer,piHeartbeat,routes/*}.ts` 改為 thin re-export shim（標 `@deprecated`），內部委派給 composition root；93 個測試（17 檔）零行為修改全綠。
+- 測試檔整理以符合 lint／format：修正 import 排序、移除未使用的 `JobStatus` import、`'i' + i` 改樣板字串，並將 3 處 `??=` 塞在表達式內（`noAssignInExpressions`）改為獨立語句；`e2e/` 三檔亦僅做 import 排序與格式化。語意與斷言皆不變。
+- WS 事件型別集中於 `domain/events.ts`（`WS_EVENT.JOB_LOG`／`JOB_DONE`／`SCAN_DONE`／`SCAN_REPO`）取代散落的字串常數。
+- `tsconfig.json` 將 `include` 由 `["src", "tests"]` 改為 `["src"]`：測試改由 vitest 執行期驗證，避免殘留的測試檔型別問題污染 production typecheck；補回測試型別並還原範圍另見 issue #19。
+- 清除重構殘留的死碼與依賴方向瑕疵：刪除無人引用的 `ContainerTokens`、`sharedContainerFromFile`、`_shims/registry.ts`（含 `setContainer`／`resetContainer`／`containerOrFresh`）、`_shims/routes.ts`、`_shims/heartbeat.ts`（併入 `_shims/piHeartbeat.ts`）與 `container.ts` 尾端無人 import 的 re-export；`app.ts` 改直接依賴 `composition/_sharedContainer.ts`，不再反向 import `_shims/`。
+
+### 修正
+
+- 回歸修正：`POST /api/scan` 不再推播 WebSocket `scan:repo`／`scan:done`。重構把「要不要廣播」綁在呼叫端的 `onRepo` 回呼上，而 `routes/_internal/scan.ts` 未傳該參數，導致掃描過程不再即時串流（issue #3 回歸）、其他分頁也收不到完成通知。改為事件責任收回 service：`scanRoot()` 無條件推播每個 repo 的 `scan:repo`，並在 `scans.finish()` 後補推一筆 `scan:done`；`src/index.ts` 的背景回填改為 `scanRoot(rootDir)` 且不再自行推播，避免重複。
+- 回歸修正：`PUT /api/config` 的 `rootDir` 驗證通過、回應 200，但記憶體與 `data/config.json` 都維持舊值（設定頁改完重整即還原）。`FileConfigRepository.setRootDir()` 原本只驗證並回傳、不賦值，`ConfigService.patch()` 也只重綁區域變數。改為讓該 setter 與同 class 其他 setter 語意一致（驗證通過即寫入 `this.config.rootDir`），並移除無效的區域變數重新賦值。
+- 測試補強：新增 `tests/scan-ws-events.test.ts`（注入 mock broadcaster，斷言不傳 `onRepo` 時仍收到 N 筆 `scan:repo` 與 1 筆 `scan:done`，含空目錄與 inspect 失敗情境）與 `tests/config-rootdir.test.ts`（`PUT /api/config {rootDir}` → 回應新值、`GET /api/config` 讀到新值、`config.json` 已更新，含與其他設定同時更新及不存在的路徑回 400 不覆寫）。測試數 93 → 100，檔案 17 → 19。
+- 清除死碼：`RepoQueryHelpers` 類別與其 `export type { JobStatus }`、`JobService` 的 `_git` 注入依存與 `static newJobId()`／`static createSpawn()`（連帶移除只為它們而存在的 `spawn`／`randomUUID` import）、`ChildProcessPullExecutor` 的 `static lastOutputLine`、`DirectoryRepoLister._ALWAYS_SKIP`、`_shims/optimizer.ts` 的自我引用 no-op `syncFromRegistry()`、`FileConfigRepository.load()`（連同 `IConfigRepository` 介面聲明）、`SqliteRepoRepository` 的 `getDetailAsync()`／`getDetail()`／`countAll()`／`ranking()`（連同 `IRepoRepository` 介面方法，其中 `getDetail()` 曾丟裸 `Error` 而非 `RepoNotFoundError`，留著會讓 route 的 `repo_not_found` 判斷失效）。
+- 收斂重複實作：三份 `lastOutputLine`（`childProcessPullExecutor`／`repoService`／`_shims/pull`）與兩份 `windowStart`（`scanner` shim／`simpleGitInspector`）集中至 `domain/text.ts`，其餘改為 import 或 re-export；`promptResolver` 純函式由 `promptResolverShim.ts` 移入 `application/promptResolver.ts`（取代無人使用的 `PromptResolver` class），並刪除 `promptResolverShim.ts`。
+- `FileConfigRepository.snapshot()` 改回傳複本 `{ ...this.config }`：原本直接回傳內部參考，呼叫端改動會滲透進 repo 內部狀態，與「snapshot」語意不符。
+- `app.ts` 移除以鴨子型別探測 `Container`／`DatabaseSync` 的雙重簽名，拆為兩個明確入口 `createApp(container)`（省略時沿用 `sharedContainer()`）與 `createAppWithDb(db)`；`tests/scan-optimize-rescan.test.ts` 改用後者。
+- `apps/server/tsconfig.json` 補回檔尾換行。`include` 維持 `["src"]` 的縮減與後續處理另開 issue #19 追蹤（`tests/prompts.test.ts:24`、`tests/scan-optimize-rescan.test.ts:132` 為既存型別問題，非本次重構造成）。
+
+### 新增
+
 - 頂部 commit 次數橫向長條圖與時間窗篩選：`GET /api/repos` 新增 `commitRanking`（全庫，含總計／今日／本週／本月，不受搜尋／篩選影響）；React 與 fallback 於標題列下方顯示前 10 名，可切換排行基準（總計／今日／本週／本月，日曆制、本機時區）。
 - 掃描新增 `commitsToday／commitsWeek／commitsMonth`（`git rev-list --count --since=<日曆起點>`）與 `commitCount`（`git rev-list --count HEAD`），`repos` 增四欄位（含舊庫 migration）。
 - 卡片顯示 `commit 次數`：React 與 fallback 卡片於「最後 commit」下方顯示總 commit 數。

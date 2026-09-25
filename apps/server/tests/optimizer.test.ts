@@ -1,12 +1,37 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { openDb } from '../src/db.js';
-import { initOptimizer, createJob, startJob, cancelJob, getJobStatus, getActiveJob, listActiveJobs, getPiConcurrency, JobStatus, JOB_TIMEOUT_MS, KILL_GRACE_MS, HEARTBEAT_MS, getJobTimeoutMs, jobMap, childMap, pruneJobLogs, MAX_JOB_LOGS } from '../src/optimizer.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configStore } from '../src/config.js';
+import { openDb } from '../src/db.js';
+import {
+  cancelJob,
+  childMap,
+  createJob,
+  getActiveJob,
+  getJobStatus,
+  getJobTimeoutMs,
+  getPiConcurrency,
+  HEARTBEAT_MS,
+  initOptimizer,
+  JOB_TIMEOUT_MS,
+  jobMap,
+  KILL_GRACE_MS,
+  listActiveJobs,
+  MAX_JOB_LOGS,
+  pruneJobLogs,
+  startJob,
+} from '../src/optimizer.js';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -128,7 +153,14 @@ describe('startJob with mocked spawn', () => {
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     child.stdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
-    return child as { kill: ReturnType<typeof vi.fn>; stdout: EventEmitter; stderr: EventEmitter; stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn>; on: ReturnType<typeof vi.fn> }; emit: EventEmitter['emit']; on: EventEmitter['on'] };
+    return child as {
+      kill: ReturnType<typeof vi.fn>;
+      stdout: EventEmitter;
+      stderr: EventEmitter;
+      stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn>; on: ReturnType<typeof vi.fn> };
+      emit: EventEmitter['emit'];
+      on: EventEmitter['on'];
+    };
   }
 
   function jobDoneCount() {
@@ -189,7 +221,12 @@ describe('startJob with mocked spawn', () => {
 
   it('job:log/job:done 同步推播給 WS clients（issue #3）', async () => {
     const sent: string[] = [];
-    const client = { readyState: 1, send: (t: string) => { sent.push(t); } };
+    const client = {
+      readyState: 1,
+      send: (t: string) => {
+        sent.push(t);
+      },
+    };
     emit = vi.fn();
     initOptimizer({ emit, clients: new Set([client]) } as any, db);
     const child = makeMockChild();
@@ -302,7 +339,10 @@ describe('startJob with mocked spawn', () => {
     cancelJob(job.id);
 
     expect(execFile).toHaveBeenCalledWith(
-      'taskkill', ['/PID', '12345', '/T', '/F'], expect.anything(), expect.anything(),
+      'taskkill',
+      ['/PID', '12345', '/T', '/F'],
+      expect.anything(),
+      expect.anything(),
     );
   });
   it('心跳：無輸出時仍寫 still running 並推 job:log', async () => {
@@ -316,7 +356,11 @@ describe('startJob with mocked spawn', () => {
       await vi.advanceTimersByTimeAsync(HEARTBEAT_MS);
       const log = readFileSync(job.logPath, 'utf8');
       expect(log).toMatch(/\$ still running \d+s/);
-      expect(emit.mock.calls.some(([e, payload]) => e === 'job:log' && String(payload?.line).startsWith('$ still running'))).toBe(true);
+      expect(
+        emit.mock.calls.some(
+          ([e, payload]) => e === 'job:log' && String(payload?.line).startsWith('$ still running'),
+        ),
+      ).toBe(true);
       child.emit('exit', 0);
       await p;
     } finally {
@@ -337,7 +381,11 @@ describe('startJob with mocked spawn', () => {
       const log = readFileSync(job.logPath, 'utf8');
       expect(log).toContain('$ partial stdout:');
       expect(log).toContain('long thought without newline');
-      expect(emit.mock.calls.some(([e, payload]) => e === 'job:log' && String(payload?.line).includes('long thought'))).toBe(true);
+      expect(
+        emit.mock.calls.some(
+          ([e, payload]) => e === 'job:log' && String(payload?.line).includes('long thought'),
+        ),
+      ).toBe(true);
       child.emit('exit', 0);
       await p;
       const finalLog = readFileSync(job.logPath, 'utf8');

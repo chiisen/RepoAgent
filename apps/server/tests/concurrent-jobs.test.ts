@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import express from 'express';
-import { openDb } from '../src/db.js';
-import { scanRoot } from '../src/scanner.js';
-import { createReposRouter } from '../src/routes/repos.js';
-import { createJobsRouter } from '../src/routes/jobs.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { configStore } from '../src/config.js';
+import { openDb } from '../src/db.js';
 import { initOptimizer } from '../src/optimizer.js';
+import { createJobsRouter } from '../src/routes/jobs.js';
+import { createReposRouter } from '../src/routes/repos.js';
+import { scanRoot } from '../src/scanner.js';
 
 const PI_SENTINEL = '__test_pi__';
 
@@ -41,14 +41,16 @@ function pushMockChild() {
   child.exitCode = null;
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
-  (((globalThis as { __piChildren?: unknown[] }).__piChildren ??= []) as unknown[]).push(child);
+  const g = globalThis as { __piChildren?: unknown[] };
+  g.__piChildren ??= [];
+  g.__piChildren.push(child);
   return child;
 }
 
 let root = '';
 let port = 0;
 let server: ReturnType<express.Application['listen']>;
-let ids: Record<string, string> = {};
+const ids: Record<string, string> = {};
 const jobLogs: string[] = [];
 const savedConc = configStore.piConcurrency;
 
@@ -101,8 +103,16 @@ describe('多併發 pi（issue #10）', () => {
     configStore.piConcurrency = 2;
     const c1 = pushMockChild();
     const c2 = pushMockChild();
-    const a = await api(`/api/repos/${ids.a}/optimize`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const b = await api(`/api/repos/${ids.b}/optimize`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const a = await api(`/api/repos/${ids.a}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const b = await api(`/api/repos/${ids.b}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     expect(a.status).toBe(202);
     expect(b.status).toBe(202);
     const ja = (a.body.job as { id: string }).id;
@@ -110,7 +120,11 @@ describe('多併發 pi（issue #10）', () => {
     expect(ja).not.toBe(jb);
     jobLogs.push(resolve('data', 'jobs', `${ja}.log`), resolve('data', 'jobs', `${jb}.log`));
 
-    const cap = await api(`/api/repos/${ids.c}/optimize`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const cap = await api(`/api/repos/${ids.c}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     expect(cap.status).toBe(409);
     expect(String(cap.body.error)).toMatch(/併發上限/);
     expect(cap.body.jobId).toBeUndefined();
@@ -131,11 +145,19 @@ describe('多併發 pi（issue #10）', () => {
 
   it('同一 repo 第二個仍 409 並帶回既有 jobId', async () => {
     const child = pushMockChild();
-    const first = await api(`/api/repos/${ids.a}/optimize`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const first = await api(`/api/repos/${ids.a}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     expect(first.status).toBe(202);
     const jid = (first.body.job as { id: string }).id;
     jobLogs.push(resolve('data', 'jobs', `${jid}.log`));
-    const second = await api(`/api/repos/${ids.a}/optimize`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const second = await api(`/api/repos/${ids.a}/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     expect(second.status).toBe(409);
     expect(second.body.jobId).toBe(jid);
     child.emit('exit', 0);

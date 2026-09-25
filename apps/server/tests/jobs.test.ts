@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import express from 'express';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb } from '../src/db.js';
-import { scanRoot } from '../src/scanner.js';
-import { createReposRouter } from '../src/routes/repos.js';
 import { createJobsRouter } from '../src/routes/jobs.js';
+import { createReposRouter } from '../src/routes/repos.js';
+import { scanRoot } from '../src/scanner.js';
 
 // 測試專用 pi 哨兵：只有這個指令走 mock child，其餘（git 等）透傳給真正的 spawn，
 // simple-git 才能正常運作。
@@ -26,7 +26,9 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
-function git(cwd: string, ...args: string[]) { execFileSync('git', [...args], { cwd, stdio: 'pipe' }); }
+function git(cwd: string, ...args: string[]) {
+  execFileSync('git', [...args], { cwd, stdio: 'pipe' });
+}
 
 function pushMockChild() {
   const child: any = new EventEmitter();
@@ -34,8 +36,15 @@ function pushMockChild() {
   child.exitCode = null;
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
-  (((globalThis as any).__piChildren ??= []) as any[]).push(child);
-  return child as { kill: ReturnType<typeof vi.fn>; stdout: EventEmitter; stderr: EventEmitter; emit: EventEmitter['emit'] };
+  const g = globalThis as { __piChildren?: any[] };
+  g.__piChildren ??= [];
+  g.__piChildren.push(child);
+  return child as {
+    kill: ReturnType<typeof vi.fn>;
+    stdout: EventEmitter;
+    stderr: EventEmitter;
+    emit: EventEmitter['emit'];
+  };
 }
 
 let root = '';

@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { openDb, needsCommitStatsBackfill, markCommitStatsBackfilled, lastScanRootDir } from '../src/db.js';
+import { describe, expect, it } from 'vitest';
+import { lastScanRootDir, markCommitStatsBackfilled, needsCommitStatsBackfill, openDb } from '../src/db.js';
 
 describe('db schema', () => {
   it('creates repos, scans, jobs tables', () => {

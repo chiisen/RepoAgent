@@ -1,26 +1,12 @@
-import { Router, Request, Response } from 'express';
+/**
+ * @deprecated — 保留舊 `createScanRouter(db)` 簽名（測試相容）。
+ */
 import type { DatabaseSync } from 'node:sqlite';
-import { getScanProgress, scanRoot } from '../scanner.js';
-import { notifyEvent } from '../optimizer.js';
 
-export function createScanRouter(db: DatabaseSync): Router {
-  const router = Router();
+import { createServicesForDb } from '../composition/container.js';
+import { createScanRouter as _newCreateScanRouter } from './_internal/scan.js';
 
-  router.get('/scan/progress', (_req: Request, res: Response) => {
-    res.json(getScanProgress());
-  });
-
-  router.post('/scan', async (req: Request, res: Response) => {
-    const { rootDir } = req.body;
-    if (!rootDir) return res.status(400).json({ error: 'rootDir required' });
-    try {
-      const summary = await scanRoot(db, rootDir, (repo) => notifyEvent('scan:repo', { repo }));
-      notifyEvent('scan:done', { ...summary });
-      res.json(summary);
-    } catch (e) {
-      res.status(400).json({ error: String(e) });
-    }
-  });
-
-  return router;
+export function createScanRouter(db: DatabaseSync): ReturnType<typeof _newCreateScanRouter> {
+  const services = createServicesForDb(db);
+  return _newCreateScanRouter(services.scanService, services.progress);
 }

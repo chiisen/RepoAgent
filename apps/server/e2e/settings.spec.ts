@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test('設定抽屜開啟→儲存→toast', async ({ page }) => {
   const res = await page.goto('/');

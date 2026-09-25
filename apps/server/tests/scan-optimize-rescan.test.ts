@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createApp, createAppWithDb } from '../src/app.js';
 import { openDb } from '../src/db.js';
-import { createApp } from '../src/app.js';
 import { initOptimizer } from '../src/optimizer.js';
 
 const PI_SENTINEL = '__test_pi__';
@@ -33,7 +33,9 @@ function pushMockChild() {
   (child as unknown as { exitCode: null }).exitCode = null;
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
-  (((globalThis as { __piChildren?: unknown[] }).__piChildren ??= []) as unknown[]).push(child);
+  const g = globalThis as { __piChildren?: unknown[] };
+  g.__piChildren ??= [];
+  g.__piChildren.push(child);
   return child;
 }
 
@@ -65,7 +67,7 @@ beforeAll(async () => {
 
   const db = openDb(':memory:');
   initOptimizer({ emit, clients: new Set() } as never, db);
-  const app = createApp(db);
+  const app = createAppWithDb(db);
   server = app.listen(0);
   await new Promise<void>((r) => server.on('listening', () => r()));
   port = (server.address() as { port: number }).port;

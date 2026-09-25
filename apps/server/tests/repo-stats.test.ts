@@ -1,18 +1,20 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { openDb } from '../src/db.js';
-import { scanRoot } from '../src/scanner.js';
-import { createReposRouter } from '../src/routes/repos.js';
+import { join } from 'node:path';
 import express from 'express';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { openDb } from '../src/db.js';
+import { createReposRouter } from '../src/routes/repos.js';
+import { scanRoot } from '../src/scanner.js';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
 }
 
-let root = '', port = 0, server: ReturnType<express.Application['listen']>;
+let root = '',
+  port = 0,
+  server: ReturnType<express.Application['listen']>;
 let db: ReturnType<typeof openDb>;
 
 beforeAll(async () => {
@@ -49,7 +51,13 @@ afterAll(async () => {
 type ListBody = {
   total: number;
   stats: { total: number; dirty: number };
-  commitRanking: { name: string; commitCount: number; commitsToday: number; commitsWeek: number; commitsMonth: number }[];
+  commitRanking: {
+    name: string;
+    commitCount: number;
+    commitsToday: number;
+    commitsWeek: number;
+    commitsMonth: number;
+  }[];
 };
 
 describe('GET /api/repos stats', () => {
