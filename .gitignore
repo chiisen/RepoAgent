@@ -3,6 +3,7 @@ dist/
 .DS_Store
 data/*.db*
 data/config.json
+apps/server/data/config.json
 data/jobs/*.log
 .superpowers/
 .vite/
