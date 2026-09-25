@@ -44,6 +44,7 @@
 - 卡片標題下方加分隔線：`.title` 加 `padding-bottom: 8px` 與 `border-bottom: 1px solid var(--border)`（純 CSS、不動 DOM；React 與 fallback 同步）。
 - 掃描改為逐 repo 邊掃邊寫（併發 6），並在掃描開始即刪除非本輪 `rootDir` 的舊列（原本掃完才刪）；換目錄時卡片牆立即歸零後逐張補上。
 - 移除全屏「掃描中」遮罩，改為標題列下方細進度列（沿用 `GET /api/scan/progress` 顯示 `n/total · 目前專案`），掃描期間卡片牆保持可見可捲動。
+- 版控忽略設定：於 `.gitignore` 加入 `.DS_Store` 規則，避免 macOS 系統中介元資料檔被誤納管。
 
 ### 修正
 
