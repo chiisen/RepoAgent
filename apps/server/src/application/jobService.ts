@@ -1,13 +1,11 @@
 /**
  * JobService — 對外提供 list / detail / cancel + 建立並啟動 job。
  *
- * 設計重點：spawn / log / heartbeat / timeout 都透過 port 注入，
- * 本類別不直接 import child_process / ws / fs。
+ * spawn、log 寫入、heartbeat、timeout 皆由 port 注入；
+ * 本類別只保留讀取 job log 檔與組路徑所需的最小 node:fs / node:path 依賴。
  */
 
 import type { ChildProcess } from 'node:child_process';
-import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -17,7 +15,6 @@ import type {
   IConfigRepository,
   IEventBroadcaster,
   IFileLogStore,
-  IGitInspector,
   IHeartbeatProbe,
   IJobRegistry,
   IProcessRunner,
@@ -40,7 +37,6 @@ export class JobService {
     private readonly logStore: IFileLogStore,
     private readonly heartbeat: IHeartbeatProbe,
     private readonly runner: IProcessRunner,
-    readonly _git: IGitInspector,
     private readonly repoRefresh: (repoPath: string, lastError?: string) => Promise<void>,
   ) {}
 
@@ -306,16 +302,6 @@ export class JobService {
   /** 初始化（清除殘留狀態；測試可重置用）。 */
   reset(): void {
     this.jobs.clearAll();
-  }
-
-  /** 對外給 repoService 使用的輔助：取得 optimize prompt 的 jobId 建立流程。 */
-  static newJobId(): string {
-    return randomUUID();
-  }
-
-  /** 對舊 import 兼容：把內部 spawn function 也 export。 */
-  static createSpawn(): typeof spawn {
-    return spawn;
   }
 
   private emitJobDone(job: JobRecord): void {

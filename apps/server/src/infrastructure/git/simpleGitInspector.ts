@@ -4,6 +4,7 @@
 import { simpleGit } from 'simple-git';
 
 import type { IGitInspector } from '../../domain/ports.js';
+import { windowStartIso } from '../../domain/text.js';
 import type { RepoInspection } from '../../domain/types.js';
 
 const GIT_TIMEOUT_MS = 12_000;
@@ -78,13 +79,4 @@ export class SimpleGitInspector implements IGitInspector {
         return { hash, date, message: msg.join('|') };
       });
   }
-}
-
-function windowStartIso(kind: 'today' | 'week' | 'month', now: Date): string {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const d = now.getDate();
-  if (kind === 'today') return new Date(y, m, d).toISOString();
-  if (kind === 'week') return new Date(y, m, d - ((now.getDay() + 6) % 7)).toISOString();
-  return new Date(y, m, 1).toISOString();
 }

@@ -79,12 +79,6 @@ function wrapChildMap(): Map<string, import('node:child_process').ChildProcess> 
 export const jobMap = wrapJobMap();
 export const childMap = wrapChildMap();
 
-/** 初始化時清空（測試 reset 用）。 */
-function syncFromRegistry(): void {
-  // Proxy getter 自動從 registry 拉資料，無需明確同步。
-  void syncFromRegistry;
-}
-
 /** 初始化：把 ws server attach、清除殘留狀態。 */
 export function initOptimizer(
   io: Server | { emit: (e: string, p: unknown) => void } | null,
@@ -93,7 +87,6 @@ export function initOptimizer(
   const container = sharedContainer();
   container.broadcaster.attach(io as { clients?: Iterable<unknown> });
   container.jobService.reset();
-  syncFromRegistry();
 }
 
 export function notifyEvent(

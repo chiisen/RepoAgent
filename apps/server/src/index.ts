@@ -6,7 +6,6 @@ import { WebSocketServer } from 'ws';
 
 import { createApp, findIndexHtml } from './app.js';
 import { createContainer } from './composition/container.js';
-import { WS_EVENT } from './domain/events.js';
 import {
   defaultDbPath,
   lastScanRootDir,
@@ -41,10 +40,9 @@ if (needsCommitStatsBackfill(container.db)) {
   if (hasRepos && rootDir && existsSync(rootDir)) {
     console.log(`背景回填 commit 時間窗統計：${rootDir}`);
     container.scanService
-      .scanRoot(rootDir, (repo) => container.broadcaster.broadcast({ type: WS_EVENT.SCAN_REPO, repo }))
+      .scanRoot(rootDir)
       .then((summary) => {
         markCommitStatsBackfilled(container.db);
-        container.broadcaster.broadcast({ type: WS_EVENT.SCAN_DONE, ...summary });
         console.log(`背景回填完成：${summary.okCount}/${summary.total} 個專案`);
       })
       .catch((e) => console.error('背景回填失敗，將於下次啟動重試：', e));

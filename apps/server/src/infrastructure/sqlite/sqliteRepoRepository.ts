@@ -9,7 +9,6 @@ import type {
   CommitRanking,
   JobDiffState,
   Repo,
-  RepoDetailExtra,
   RepoListResult,
   RepoQuery,
   RepoStats,
@@ -156,27 +155,6 @@ export class SqliteRepoRepository implements IRepoRepository {
     return { repos: repos as RepoListResult['repos'], total: repos.length, stats, commitRanking };
   }
 
-  async getDetailAsync(
-    repoPath: string,
-    _limit: number,
-    _extraLoader: (path: string) => Promise<RepoDetailExtra>,
-  ): Promise<Repo | null> {
-    const repo = this.findByPath(repoPath);
-    if (!repo) return null;
-    return repo;
-  }
-
-  getDetail(id: string): { repo: Repo; extra: RepoDetailExtra } {
-    const found = this.stmt('SELECT * FROM repos WHERE id=?').get(id) as Repo | undefined;
-    if (!found) {
-      throw new Error(`repo not found: ${id}`);
-    }
-    return {
-      repo: found,
-      extra: { statusShort: [], recentCommits: [] },
-    };
-  }
-
   removeMissing(keepPaths: string[]): void {
     if (keepPaths.length === 0) {
       this.db.exec('DELETE FROM repos');
@@ -188,17 +166,5 @@ export class SqliteRepoRepository implements IRepoRepository {
 
   recordLastPull(id: string, at: string, msg: string): void {
     this.stmt('UPDATE repos SET lastPullAt=?, lastPullMsg=? WHERE id=?').run(at, msg, id);
-  }
-
-  countAll(): RepoStats {
-    return this.stmt(
-      'SELECT COUNT(*) AS total, COALESCE(SUM(isDirty), 0) AS dirty FROM repos',
-    ).get() as RepoStats;
-  }
-
-  ranking(): CommitRanking[] {
-    return this.stmt(
-      'SELECT id, name, commitCount, commitsToday, commitsWeek, commitsMonth FROM repos ORDER BY commitCount DESC, name ASC',
-    ).all() as CommitRanking[];
   }
 }

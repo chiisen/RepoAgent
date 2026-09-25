@@ -2,6 +2,7 @@
  * Shim: config.ts — 保留舊 module-level `configStore` 與所有 helper 函式。
  */
 import * as path from 'node:path';
+import { resolveOptimizePrompt as _resolveOptimizePrompt } from '../application/promptResolver.js';
 import { sharedContainer } from '../composition/_sharedContainer.js';
 import type { ConfigStore } from '../domain/config.js';
 import {
@@ -22,16 +23,8 @@ export const resolveOptimizePrompt = (
   repoPath: string,
   branch: string,
   body: { prompt?: unknown; promptId?: unknown },
-): { prompt: string; promptId: string } => {
-  const snap = sharedContainer().configRepo.snapshot();
-  const custom = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-  if (custom) return { prompt: _fillPrompt(custom, repoPath, branch), promptId: 'custom' };
-  const id =
-    typeof body.promptId === 'string' && body.promptId.trim() ? body.promptId.trim() : snap.activePromptId;
-  const t = snap.promptTemplates.find((x) => x.id === id);
-  if (!t) throw new Error(`unknown promptId: ${id}`);
-  return { prompt: _fillPrompt(t.body, repoPath, branch), promptId: t.id };
-};
+): { prompt: string; promptId: string } =>
+  _resolveOptimizePrompt(sharedContainer().configRepo.snapshot(), repoPath, branch, body);
 
 export const normalizeRootDir = (input: string): string => {
   const trimmed = input.trim();

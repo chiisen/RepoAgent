@@ -89,7 +89,7 @@ export class ScanService {
           this.repos.upsert(row);
           okCount++;
           onRepo?.(row);
-          if (onRepo) this.broadcastScanRepo(row);
+          this.broadcastScanRepo(row);
         } catch (e) {
           failCount++;
           const id = this.repos.ensureRepoId(repoPath);
@@ -103,7 +103,9 @@ export class ScanService {
 
       const total = dirs.length;
       this.scans.finish(scanId, new Date().toISOString(), total, okCount, failCount);
-      return { scanId, rootDir: root, total, okCount, failCount };
+      const summary: ScanSummary = { scanId, rootDir: root, total, okCount, failCount };
+      this.broadcaster.broadcast({ type: WS_EVENT.SCAN_DONE, ...summary });
+      return summary;
     } finally {
       this.progress.markRunning(false);
       this.progress.setCurrent('');
@@ -154,21 +156,6 @@ export class ScanService {
         id,
       );
     }
-  }
-
-  /** 對 scanner 暴露 windowStart（測試相容）。 */
-  static windowStart(kind: 'today' | 'week' | 'month', now: Date = new Date()): string {
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const d = now.getDate();
-    if (kind === 'today') return new Date(y, m, d).toISOString();
-    if (kind === 'week') return new Date(y, m, d - ((now.getDay() + 6) % 7)).toISOString();
-    return new Date(y, m, 1).toISOString();
-  }
-
-  /** 對外暴露的命名函式（測試相容）。 */
-  static windowStartNamed(kind: 'today' | 'week' | 'month', now?: Date): string {
-    return ScanService.windowStart(kind, now);
   }
 
   private broadcastScanRepo(repo: Repo): void {

@@ -14,8 +14,7 @@ export class ConfigService {
 
   patch(updates: Record<string, unknown>): ConfigStore {
     if (updates.rootDir !== undefined) {
-      const normalized = this.repo.setRootDir(String(updates.rootDir));
-      updates = { ...updates, rootDir: normalized };
+      this.repo.setRootDir(String(updates.rootDir));
     }
     if (updates.piPath !== undefined) {
       this.repo.setPiPath(String(updates.piPath));

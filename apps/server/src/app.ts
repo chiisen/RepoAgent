@@ -1,10 +1,9 @@
 /**
  * Express app 組合（薄殼）。所有服務由 composition root 注入。
  *
- * 雙重簽名以向後相容：
- * - `createApp(container)` — 新建構子注入（首選）
- * - `createApp(db)`       — 舊版（測試相容）
- * - `createApp()`         — 不傳參：沿用 container 預設 db
+ * 兩個明確入口：
+ * - `createApp(container)` — 建構子注入（省略時沿用 sharedContainer）
+ * - `createAppWithDb(db)`  — 以既有 DB 建立一次性服務（測試用）
  */
 
 import { existsSync } from 'node:fs';
@@ -34,13 +33,8 @@ export function findIndexHtml(): string | undefined {
   return candidates.find((p) => existsSync(p));
 }
 
-export function createApp(containerOrDb?: Container | DatabaseSync): Express {
-  const services =
-    containerOrDb === undefined
-      ? sharedContainer()
-      : containerOrDb && typeof (containerOrDb as Container).scanService === 'object'
-        ? (containerOrDb as Container)
-        : createServicesForDb(containerOrDb as DatabaseSync);
+export function createApp(container: Container = sharedContainer()): Express {
+  const services = container;
 
   const app = express();
   app.use(express.json());
@@ -64,4 +58,9 @@ export function createApp(containerOrDb?: Container | DatabaseSync): Express {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   return app;
+}
+
+/** 以既有 DB 建立一次性 container 的 app（測試用）。 */
+export function createAppWithDb(db: DatabaseSync): Express {
+  return createApp(createServicesForDb(db));
 }

@@ -6,7 +6,6 @@ import type { ChildProcess } from 'node:child_process';
 
 import type { WsEventPayload } from './events.js';
 import type {
-  CommitRanking,
   ConfigStore,
   JobDiffState,
   JobRecord,
@@ -14,7 +13,6 @@ import type {
   PromptTemplate,
   PullResult,
   Repo,
-  RepoDetailExtra,
   RepoExtras,
   RepoInspection,
   RepoListResult,
@@ -34,11 +32,8 @@ export interface IRepoRepository {
   findById(id: string): Repo | undefined;
   readSnapshot(repoPath: string): JobDiffState;
   list(query: RepoQuery): RepoListResult;
-  getDetail(id: string): { repo: Repo; extra: RepoDetailExtra };
   removeMissing(keepPaths: string[]): void;
   recordLastPull(id: string, at: string, msg: string): void;
-  countAll(): { total: number; dirty: number };
-  ranking(): CommitRanking[];
 }
 
 /** 掃描紀錄倉儲。 */
@@ -50,10 +45,9 @@ export interface IScanRepository {
 
 /** 設定倉儲（含檔案持久化）。 */
 export interface IConfigRepository {
-  load(): ConfigStore;
   save(): void;
   patch(input: Partial<ConfigStore> & Record<string, unknown>): void;
-  /** 回傳當前 in-memory 設定。 */
+  /** 回傳當前設定複本（呼叫端改動不影響內部狀態）。 */
   snapshot(): ConfigStore;
   /** 驗證並寫入；丟出 InvalidPromptError / InvalidSkipDirsError。 */
   setPromptTemplates(raw: unknown): PromptTemplate[];

@@ -10,7 +10,7 @@ import type { IFileLogStore, IPullExecutor } from '../../domain/ports.js';
 import type { PullResult } from '../../domain/types.js';
 
 const execFileAsync = promisify(execFile);
-const PULL_TIMEOUT_MS = 25_000;
+export const PULL_TIMEOUT_MS = 25_000;
 
 const gitEnv = {
   ...process.env,
@@ -20,15 +20,6 @@ const gitEnv = {
   SSH_ASKPASS: 'echo',
   GIT_OPTIONAL_LOCKS: '0',
 };
-
-function lastOutputLine(text: string): string {
-  const lines = text
-    .replace(/\r/g, '')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  return (lines[lines.length - 1] || text.trim() || '').slice(0, 200);
-}
 
 function isTimeout(e: unknown): boolean {
   const err = e as { killed?: boolean; code?: string | number; signal?: string };
@@ -149,11 +140,6 @@ export class ChildProcessPullExecutor implements IPullExecutor {
         logPath: this.writeLog(`pull-${jobId}.log`, `${header + message}\n${output}`),
       };
     }
-  }
-
-  /** 暴露給外部使用（pull route 仍會需要 lastOutputLine）。 */
-  static lastOutputLine(text: string): string {
-    return lastOutputLine(text);
   }
 
   private writeLog(name: string, body: string): string {

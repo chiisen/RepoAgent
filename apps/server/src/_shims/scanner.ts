@@ -7,6 +7,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { sharedContainer } from '../composition/_sharedContainer.js';
 import { createServicesForDb } from '../composition/container.js';
+import { windowStartIso } from '../domain/text.js';
 import type { Repo } from '../domain/types.js';
 
 /** 舊型別：ScanSummary / ScanProgress / CommitWindow（外部 API 形狀）。 */
@@ -18,7 +19,7 @@ export type ScanSummary = {
   failCount: number;
 };
 export type ScanProgress = { running: boolean; total: number; done: number; current: string };
-export type CommitWindow = 'today' | 'week' | 'month';
+export type { CommitWindow } from '../domain/text.js';
 
 /** 舊 API：列出 rootDir 下的 git repo 寫入 db；回傳 ScanSummary。 */
 export async function scanRoot(
@@ -40,14 +41,7 @@ export function getScanProgress(): ScanProgress {
 }
 
 /** 對應舊 `windowStart(kind, now)`：今日/本週一/本月 1 號 ISO 字串。 */
-export function windowStart(kind: CommitWindow, now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const d = now.getDate();
-  if (kind === 'today') return new Date(y, m, d).toISOString();
-  if (kind === 'week') return new Date(y, m, d - ((now.getDay() + 6) % 7)).toISOString();
-  return new Date(y, m, 1).toISOString();
-}
+export const windowStart = windowStartIso;
 
 export function getSkipDirs(): Set<string> {
   const snap = sharedContainer().configRepo.snapshot();

@@ -54,10 +54,6 @@ export class FileConfigRepository implements IConfigRepository {
     }
   }
 
-  load(): ConfigStore {
-    return this.config;
-  }
-
   save(): void {
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
@@ -68,7 +64,7 @@ export class FileConfigRepository implements IConfigRepository {
   }
 
   snapshot(): ConfigStore {
-    return this.config;
+    return { ...this.config };
   }
 
   patch(input: Partial<ConfigStore> & Record<string, unknown>): void {
@@ -99,6 +95,7 @@ export class FileConfigRepository implements IConfigRepository {
     if (!normalized || !fs.existsSync(normalized)) {
       throw new RootDirNotFoundError(raw);
     }
+    this.config.rootDir = normalized;
     return normalized;
   }
 

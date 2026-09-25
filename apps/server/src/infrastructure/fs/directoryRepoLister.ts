@@ -9,7 +9,6 @@ import { join } from 'node:path';
 import type { IRepoLister } from '../../domain/ports.js';
 
 const MAX_SCAN_DEPTH = 5;
-const _ALWAYS_SKIP = new Set(['.git']);
 
 export class DirectoryRepoLister implements IRepoLister {
   constructor(private readonly skipNames: () => Set<string>) {}

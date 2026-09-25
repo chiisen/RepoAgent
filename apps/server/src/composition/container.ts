@@ -83,7 +83,6 @@ export function createServicesForDb(db: DatabaseSync, _opts?: { configPath?: str
     shared.logStore,
     shared.heartbeatProbe,
     shared.processRunner,
-    shared.gitInspector,
     async (repoPath, lastError) => scanService.refreshRepo(repoPath, lastError),
   );
   const repoService = new RepoService(
@@ -145,7 +144,6 @@ function buildContainerInternal(opts: { dbPath: string; configPath?: string }) {
     logStore,
     heartbeatProbe,
     processRunner,
-    gitInspector,
     async (repoPath, lastError) => scanService.refreshRepo(repoPath, lastError),
   );
 

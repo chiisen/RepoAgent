@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../src/app.js';
+import { createApp, createAppWithDb } from '../src/app.js';
 import { openDb } from '../src/db.js';
 import { initOptimizer } from '../src/optimizer.js';
 
@@ -67,7 +67,7 @@ beforeAll(async () => {
 
   const db = openDb(':memory:');
   initOptimizer({ emit, clients: new Set() } as never, db);
-  const app = createApp(db);
+  const app = createAppWithDb(db);
   server = app.listen(0);
   await new Promise<void>((r) => server.on('listening', () => r()));
   port = (server.address() as { port: number }).port;
