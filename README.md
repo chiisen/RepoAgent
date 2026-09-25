@@ -21,7 +21,7 @@
 | [DESIGN.md](DESIGN.md) | 視覺設計系統 |
 | [CHANGELOG.md](CHANGELOG.md) | 更新日誌（Keep a Changelog，繁中） |
 
-> 後端分層方式：`domain/`（型別與介面）→ `application/`（業務服務）→ `infrastructure/`（DB／Git／FS／Process／WS adapter），具體實例只在 `composition/container.ts` 建立。詳見重構紀錄。
+> 後端分層方式：`domain/`（型別與介面）→ `application/`（業務服務）→ `infrastructure/`（DB／Git／FS／Process／WS adapter），具體實例只在 `composition/container.ts` 建立。詳見[後端重構紀錄](docs/refactor/2026-09-25-backend-clean-architecture.md)。
 
 ## 快速開始
 
