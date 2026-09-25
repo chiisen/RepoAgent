@@ -11,6 +11,18 @@
 - 技術：Node 22+、Express、`node:sqlite`、單一 port（預設 3000）
 - UI：有 `apps/web/dist/index.html` 時送 Vite React；否則 `apps/web/public` fallback。`GET /` 不會落到 Express 預設 404。
 
+## 文件導覽
+
+| 文件 | 內容 |
+| --- | --- |
+| [docs/refactor/2026-09-25-backend-clean-architecture.md](docs/refactor/2026-09-25-backend-clean-architecture.md) | **後端重構紀錄**：動機、目標架構、關鍵決定、重構中抓到的兩個回歸與根因、驗證數字、已知取捨與衍生 issue |
+| [REFACTOR-GUIDE.md](REFACTOR-GUIDE.md) | **通用重構指引**（可直接複製到其他專案）：不破壞既有行為的分層重構流程、自我 Review 檢查表、驗收標準與反模式速查 |
+| [PR-WORKFLOW.md](PR-WORKFLOW.md) | 通用 PR 流程（分支、送審、自我 Code Review、逐則回覆、合併時機） |
+| [DESIGN.md](DESIGN.md) | 視覺設計系統 |
+| [CHANGELOG.md](CHANGELOG.md) | 更新日誌（Keep a Changelog，繁中） |
+
+> 後端分層方式：`domain/`（型別與介面）→ `application/`（業務服務）→ `infrastructure/`（DB／Git／FS／Process／WS adapter），具體實例只在 `composition/container.ts` 建立。詳見重構紀錄。
+
 ## 快速開始
 
 從**專案根目錄**執行。
@@ -108,6 +120,11 @@ Playwright 忽略 Chrome 擴充功能（`content_main.js`）的 console。本頁
 ├─ apps/server/     # Express + WS（port 3000）
 ├─ apps/web/        # Vite React（src／static）；public 為 fallback；dist 建置產物
 ├─ data/            # config.json、*.db 不納版控
+├─ docs/
+│  ├─ refactor/     # 重構紀錄
+│  └─ superpowers/specs/  # 後端／前端規格
+├─ REFACTOR-GUIDE.md
+├─ PR-WORKFLOW.md
 ├─ CHANGELOG.md
 └─ README.md
 ```

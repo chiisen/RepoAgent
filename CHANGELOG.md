@@ -9,6 +9,7 @@
 
 - 架構重構為 Clean Architecture 三層 + DI：後端 src/ 拆分為 `domain/`（純型別與介面）、`application/`（業務服務）、`infrastructure/`（SQLite / Git / FS / Process / WS adapters）、`composition/container.ts`（唯一允許 `new` 具體實例的組裝根）、`routes/_internal/`（Controller，建構子注入 service）、`_shims/`（向後相容舊 import）。所有 service 與 controller 透過建構子注入介面（`IRepRepository`、`IGitInspector`、`IPullExecutor`、`IRepoLister`、`IEventBroadcaster`、`IProcessRunner` 等），無硬編碼的 `new` 具體實例。
 - Lint / Formatter 工具：採用 Biome（`@biomejs/biome` 2.5+），新增 `biome.json` 與 `npm run lint`／`npm run format`／`npm run check` 指令，範圍依 `biome.json` 的 `files.includes` 涵蓋 `src`／`tests`／`e2e`，全部零錯誤、零警告；並修正 `biome.json` 已棄用的 `recommended` 為 `preset`、忽略樣式改為 `!dist` 形式。
+- 重構文件：新增 `docs/refactor/2026-09-25-backend-clean-architecture.md`（紀錄 PR #18 的動機、目標架構、關鍵決定、重構中抓到的兩個回歸與根因、驗證數字、已知取捨與衍生 issue）與根目錄 `REFACTOR-GUIDE.md`（可直接複製到其他專案的分層重構指引：流程、自我 Review 檢查表、驗收標準與反模式速查）；`README.md` 新增「文件導覽」表格並更新專案結構樹。
 
 ### 變更
 
