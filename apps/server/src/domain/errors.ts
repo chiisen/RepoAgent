@@ -23,6 +23,12 @@ export class JobNotFoundError extends DomainError {
   }
 }
 
+export class ScanInProgressError extends DomainError {
+  constructor() {
+    super('scan_in_progress', '掃描進行中');
+  }
+}
+
 export class RootDirNotFoundError extends DomainError {
   constructor(path: string) {
     super('root_dir_not_found', `rootDir not found: ${path}`);

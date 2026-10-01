@@ -21,6 +21,10 @@
 
 ### 修正
 
+- 未設定 `REPOAGENT_DB` 時啟動改開啟倉庫根 `data/repoagent.db`（不再落到 `:memory:`）；預設資料庫與 `config.json` 都改放倉庫根 `data/`（issue #29、#30）。
+- 掃描進行中若再收到掃描要求回 HTTP 409，且根路徑不是目錄時在清掉 `repos` 之前失敗，避免重疊掃描互刪列（issue #31）。
+- pi 逾時後行程再退出不會把 job 改成完成或再推一次 `job:done`；設定裡的 `piPath` 會在未設 `PI_PATH` 時用來啟動 pi；掃描串流對同一個 repo id 不再重複累加專案數（issue #32）。
+- 三份 agent 指引的 `git pull` 逾時改為與程式一致的 25 秒（issue #32）。
 - 回歸修正：`POST /api/scan` 不再推播 WebSocket `scan:repo`／`scan:done`。重構把「要不要廣播」綁在呼叫端的 `onRepo` 回呼上，而 `routes/_internal/scan.ts` 未傳該參數，導致掃描過程不再即時串流（issue #3 回歸）、其他分頁也收不到完成通知。改為事件責任收回 service：`scanRoot()` 無條件推播每個 repo 的 `scan:repo`，並在 `scans.finish()` 後補推一筆 `scan:done`；`src/index.ts` 的背景回填改為 `scanRoot(rootDir)` 且不再自行推播，避免重複。
 - 回歸修正：`PUT /api/config` 的 `rootDir` 驗證通過、回應 200，但記憶體與 `data/config.json` 都維持舊值（設定頁改完重整即還原）。`FileConfigRepository.setRootDir()` 原本只驗證並回傳、不賦值，`ConfigService.patch()` 也只重綁區域變數。改為讓該 setter 與同 class 其他 setter 語意一致（驗證通過即寫入 `this.config.rootDir`），並移除無效的區域變數重新賦值。
 - 測試補強：新增 `tests/scan-ws-events.test.ts`（注入 mock broadcaster，斷言不傳 `onRepo` 時仍收到 N 筆 `scan:repo` 與 1 筆 `scan:done`，含空目錄與 inspect 失敗情境）與 `tests/config-rootdir.test.ts`（`PUT /api/config {rootDir}` → 回應新值、`GET /api/config` 讀到新值、`config.json` 已更新，含與其他設定同時更新及不存在的路徑回 400 不覆寫）。測試數 93 → 100，檔案 17 → 19。

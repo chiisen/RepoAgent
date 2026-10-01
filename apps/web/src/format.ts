@@ -98,6 +98,21 @@ export function repoVisible(r: RepoListItem, q: string, filter: string): boolean
  * 掃描中逐張插入用：以 id 取代舊項，插入排序位置；不符目前搜尋／篩選則移除。
  * 回傳同一參考（未變動）時 React 會跳過重繪。
  */
+export type ScanTotals = { total: number; dirty: number };
+
+/** 同一 repo id 的 scan:repo 只計一次。呼叫端在事件路徑使用；失敗 repo 沒有事件就不會進來。 */
+export function accumulateScanRepoStats(
+  prev: ScanTotals | null | undefined,
+  repo: { id?: string; isDirty?: number | boolean },
+  seen: Set<string>,
+): ScanTotals {
+  const base = { total: prev?.total ?? 0, dirty: prev?.dirty ?? 0 };
+  const id = repo.id ?? '';
+  if (id && seen.has(id)) return base;
+  if (id) seen.add(id);
+  return { total: base.total + 1, dirty: base.dirty + (repo.isDirty ? 1 : 0) };
+}
+
 export function insertRepo<T extends RepoListItem>(
   list: T[],
   repo: T,

@@ -12,5 +12,6 @@ describe('agent docs sync', () => {
     expect(bodies[0].length).toBeGreaterThan(100);
     expect(bodies[1]).toBe(bodies[0]);
     expect(bodies[2]).toBe(bodies[0]);
+    expect(bodies[0]).toContain('25 秒逾時');
   });
 });

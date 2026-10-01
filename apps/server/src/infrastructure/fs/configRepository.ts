@@ -3,7 +3,6 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { ConfigStore } from '../../domain/config.js';
 import {
   CONFIG_DEFAULTS,
@@ -11,12 +10,10 @@ import {
   parsePromptTemplates,
   parseSkipDirs,
 } from '../../domain/config.js';
+import { repoDataDir } from '../../dataDir.js';
 import { RootDirNotFoundError } from '../../domain/errors.js';
 import type { IConfigRepository } from '../../domain/ports.js';
 import type { PromptTemplate } from '../../domain/types.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export class FileConfigRepository implements IConfigRepository {
   private config: ConfigStore;
@@ -27,7 +24,7 @@ export class FileConfigRepository implements IConfigRepository {
   }
 
   static defaultPath(): string {
-    return path.join(__dirname, '..', '..', '..', 'data', 'config.json');
+    return path.join(repoDataDir(), 'config.json');
   }
 
   private loadFromDisk(): void {

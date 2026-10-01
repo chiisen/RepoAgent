@@ -114,13 +114,21 @@ export class JobService {
   startJob(job: JobRecord): Promise<void> {
     return new Promise((resolveP) => {
       let settled = false;
+      let completed = false;
+      const claim = (): boolean => {
+        if (completed) return false;
+        completed = true;
+        return true;
+      };
       const done = () => {
         if (!settled) {
           settled = true;
           resolveP();
         }
       };
-      const piPath = process.env.PI_PATH || 'pi';
+      const fromEnv = process.env.PI_PATH?.trim();
+      const fromConfig = this.config.snapshot().piPath?.trim();
+      const piPath = fromEnv || fromConfig || 'pi';
       const prompt = job.prompt || '';
       const repoPath = resolve(job.repoId);
       const before = this.repos.readSnapshot(repoPath);
@@ -225,6 +233,7 @@ export class JobService {
         this.jobs.clearTimeoutHandle(job.id);
         this.jobs.clearPulseHandle(job.id);
         this.jobs.removeChild(job.id);
+        if (!claim()) return;
         for (const rest of [outRest, errRest]) {
           if (rest.trim()) {
             try {
@@ -256,10 +265,11 @@ export class JobService {
       });
 
       child.on('error', (err) => {
-        const e = err as NodeJS.ErrnoException;
         this.jobs.clearTimeoutHandle(job.id);
         this.jobs.clearPulseHandle(job.id);
         this.jobs.removeChild(job.id);
+        if (!claim()) return;
+        const e = err as NodeJS.ErrnoException;
         job.status = 'failed';
         job.exitCode = -1;
         job.finishedAt = new Date().toISOString();
@@ -278,6 +288,7 @@ export class JobService {
       this.jobs.setTimeoutHandle(
         job.id,
         setTimeout(() => {
+          if (!claim()) return;
           this.jobs.clearTimeoutHandle(job.id);
           this.jobs.clearPulseHandle(job.id);
           const c = this.jobs.getChild(job.id);

@@ -4,7 +4,7 @@ import { Header } from './components/Header';
 import { CommitChart } from './components/CommitChart';
 import { Drawer, type DrawerMode } from './components/Drawer';
 import { RepoGrid } from './components/RepoGrid';
-import { insertRepo, jobEndToast, normalizeRootDirInput, scanCaption } from './format';
+import { accumulateScanRepoStats, insertRepo, jobEndToast, normalizeRootDirInput, scanCaption } from './format';
 import type { CommitRank, Config, Repo, RepoStats, ScanProgress } from './types';
 import { useWs } from './useWs';
 
@@ -33,6 +33,8 @@ export function App() {
   const [extrasEnabled, setExtrasEnabled] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jobToastIds = useRef(new Set<string>());
+  const seenScanRepoIds = useRef(new Set<string>());
+  const statsRef = useRef<RepoStats | null>(null);
 
   const toast = useCallback((m: string, ms = 4000, tone = '') => {
     setToastMsg(m);
@@ -49,7 +51,10 @@ export function App() {
       '/api/repos?q=' + encodeURIComponent(q) + '&filter=' + filter + '&sort=' + sort,
     );
     setRepos(data.repos);
-    if (data.stats) setStats(data.stats);
+    if (data.stats) {
+      statsRef.current = data.stats;
+      setStats(data.stats);
+    }
     setCommitRanking(data.commitRanking ?? []);
   }, [q, filter, sort]);
 
@@ -89,10 +94,9 @@ export function App() {
       const repo = m.repo;
       if (repo) {
         setRepos((prev) => insertRepo(prev, repo, q, filter, sort));
-        setStats((prev) => ({
-          total: (prev?.total ?? 0) + 1,
-          dirty: (prev?.dirty ?? 0) + (repo.isDirty ? 1 : 0),
-        }));
+        const next = accumulateScanRepoStats(statsRef.current, repo, seenScanRepoIds.current);
+        statsRef.current = next;
+        setStats(next);
       }
     } else if (m.type === 'scan:done') {
       if (!scanning) {
@@ -140,7 +144,9 @@ export function App() {
       return;
     }
     setRepos([]);
-    setStats({ total: 0, dirty: 0 });
+    seenScanRepoIds.current = new Set();
+    statsRef.current = { total: 0, dirty: 0 };
+    setStats(statsRef.current);
     setCommitRanking([]);
     setScanning(true);
     setScanLabel('掃描中…');
@@ -255,6 +261,8 @@ export function App() {
         onRootDir={(v) => {
           setRootDir(v);
           setRepos([]);
+          statsRef.current = null;
+          seenScanRepoIds.current = new Set();
           setStats(null);
           setCommitRanking([]);
         }}

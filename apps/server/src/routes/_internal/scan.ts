@@ -3,7 +3,7 @@
  */
 import { type Request, type Response, Router } from 'express';
 import type { ScanService } from '../../application/scanService.js';
-import { RootDirNotFoundError } from '../../domain/errors.js';
+import { RootDirNotFoundError, ScanInProgressError } from '../../domain/errors.js';
 import type { IScanProgressTracker } from '../../domain/ports.js';
 
 export function createScanRouter(
@@ -23,6 +23,9 @@ export function createScanRouter(
       const summary = await scanService.scanRoot(String(rootDir));
       res.json(summary);
     } catch (e) {
+      if (e instanceof ScanInProgressError) {
+        return res.status(409).json({ error: (e as Error).message });
+      }
       if (e instanceof RootDirNotFoundError) {
         return res.status(400).json({ error: (e as Error).message });
       }

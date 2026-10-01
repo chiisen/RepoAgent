@@ -7,16 +7,16 @@ import { WebSocketServer } from 'ws';
 import { createApp, findIndexHtml } from './app.js';
 import { createContainer } from './composition/container.js';
 import {
-  defaultDbPath,
   lastScanRootDir,
   markCommitStatsBackfilled,
   needsCommitStatsBackfill,
+  resolveStartupDbPath,
 } from './infrastructure/sqlite/connection.js';
 
 const PORT = Number(process.env.PORT) || 3000;
-const dbPath = process.env.REPOAGENT_DB || defaultDbPath();
+const dbPath = resolveStartupDbPath();
 
-const container = createContainer({ dbPath: process.env.REPOAGENT_DB });
+const container = createContainer({ dbPath });
 const app = createApp(container);
 const indexHtml = findIndexHtml();
 

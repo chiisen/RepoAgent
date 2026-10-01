@@ -26,6 +26,20 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
+async function rmTempDir(dir: string) {
+  let last: unknown;
+  for (let i = 0; i < 20; i++) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  throw last;
+}
+
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
 }
@@ -89,7 +103,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
-  rmSync(root, { recursive: true, force: true });
+  await rmTempDir(root);
 });
 
 beforeEach(() => {

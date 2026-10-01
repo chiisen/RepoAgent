@@ -1,10 +1,10 @@
 /**
  * ScanService — 掃描 orchestration（純業務；依賴注入）。
  */
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { basename, parse, resolve } from 'node:path';
 
-import { RootDirNotFoundError } from '../domain/errors.js';
+import { RootDirNotFoundError, ScanInProgressError } from '../domain/errors.js';
 import { WS_EVENT } from '../domain/events.js';
 import type {
   IConfigRepository,
@@ -33,10 +33,15 @@ export class ScanService {
     private readonly broadcaster: IEventBroadcaster,
   ) {}
 
+  private scanInFlight = false;
+
   async scanRoot(rawRoot: string, onRepo?: RepoCallback): Promise<ScanSummary> {
+    if (this.scanInFlight) throw new ScanInProgressError();
     const root = this.normalizeRootDir(rawRoot);
     if (!existsSync(root)) throw new RootDirNotFoundError(root);
+    if (!statSync(root).isDirectory()) throw new RootDirNotFoundError(root);
 
+    this.scanInFlight = true;
     this.progress.reset();
     this.progress.markRunning(true);
     try {
@@ -107,6 +112,7 @@ export class ScanService {
       this.broadcaster.broadcast({ type: WS_EVENT.SCAN_DONE, ...summary });
       return summary;
     } finally {
+      this.scanInFlight = false;
       this.progress.markRunning(false);
       this.progress.setCurrent('');
     }

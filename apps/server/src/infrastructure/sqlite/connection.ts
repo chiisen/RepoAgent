@@ -4,8 +4,8 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
 
+import { repoDataDir } from '../../dataDir.js';
 import type { IDatabaseConnection } from '../../domain/ports.js';
 
 export const SCHEMA_VERSION = 1;
@@ -58,7 +58,13 @@ CREATE TABLE IF NOT EXISTS jobs(
 `;
 
 export function defaultDbPath(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'data', 'repoagent.db');
+  return join(repoDataDir(), 'repoagent.db');
+}
+
+/** 正式啟動用：未設定 REPOAGENT_DB 時用 defaultDbPath()，不用 :memory:。 */
+export function resolveStartupDbPath(envValue = process.env.REPOAGENT_DB): string {
+  const trimmed = typeof envValue === 'string' ? envValue.trim() : '';
+  return trimmed || defaultDbPath();
 }
 
 function migrateRepos(db: DatabaseSync): void {

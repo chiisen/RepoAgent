@@ -30,6 +30,20 @@ function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
 }
 
+async function rmTempDir(dir: string) {
+  let last: unknown;
+  for (let i = 0; i < 20; i++) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  throw last;
+}
+
 function pushMockChild() {
   const child = new EventEmitter() as EventEmitter & {
     kill: ReturnType<typeof vi.fn>;
@@ -90,7 +104,7 @@ afterAll(async () => {
   configStore.piConcurrency = savedConc;
   vi.unstubAllEnvs();
   await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
-  rmSync(root, { recursive: true, force: true });
+  await rmTempDir(root);
   for (const p of jobLogs) rmSync(p, { force: true });
 });
 

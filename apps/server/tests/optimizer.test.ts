@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sharedContainer } from '../src/composition/_sharedContainer.js';
 import { configStore } from '../src/config.js';
 import { openDb } from '../src/db.js';
 import {
@@ -417,6 +418,47 @@ describe('startJob with mocked spawn', () => {
       expect(child.kill).toHaveBeenCalledWith('SIGKILL');
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('逾時之後行程退出不會再標成 done 或再送 job:done', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = makeMockChild();
+      mockSpawn.mockReturnValue(child as any);
+      const job = createJob('/test/repo', 'prompt');
+      createdLogs.push(resolve('data', 'jobs', `${job.id}.log`));
+      const p = startJob(job, db);
+      await vi.advanceTimersByTimeAsync(JOB_TIMEOUT_MS);
+      await p;
+      expect(job.status).toBe('failed');
+      expect(jobDoneCount()).toBe(1);
+      expect(sharedContainer().jobRegistry.getChild(job.id)).toBe(child);
+      child.emit('exit', 0);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(job.status).toBe('failed');
+      expect(jobDoneCount()).toBe(1);
+      expect(sharedContainer().jobRegistry.getChild(job.id)).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('未設 PI_PATH 時 spawn 使用設定的 piPath', async () => {
+    const saved = configStore.piPath;
+    vi.stubEnv('PI_PATH', '');
+    try {
+      configStore.piPath = resolve('/tools/pi');
+      const child = makeMockChild();
+      mockSpawn.mockReturnValue(child as any);
+      const job = createJob('/test/repo', 'prompt');
+      createdLogs.push(resolve('data', 'jobs', `${job.id}.log`));
+      const p = startJob(job, db);
+      expect(mockSpawn.mock.calls[0][0]).toBe(resolve('/tools/pi'));
+      child.emit('exit', 0);
+      await p;
+    } finally {
+      configStore.piPath = saved;
     }
   });
 });

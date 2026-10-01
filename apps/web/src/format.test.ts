@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accumulateScanRepoStats,
   diffHtml,
   activityLabel,
   chartBars,
@@ -16,6 +17,18 @@ import {
   sliceTime,
   trackingLine,
 } from './format';
+
+describe('accumulateScanRepoStats', () => {
+  it('同一個 id 的 scan:repo 不重複累加 total', () => {
+    const seen = new Set<string>();
+    const once = accumulateScanRepoStats({ total: 0, dirty: 0 }, { id: 'a', isDirty: 1 }, seen);
+    const twice = accumulateScanRepoStats(once, { id: 'a', isDirty: 1 }, seen);
+    const other = accumulateScanRepoStats(twice, { id: 'b', isDirty: 0 }, seen);
+    expect(once).toEqual({ total: 1, dirty: 1 });
+    expect(twice).toEqual({ total: 1, dirty: 1 });
+    expect(other).toEqual({ total: 2, dirty: 1 });
+  });
+});
 
 describe('trackingLine', () => {
   it('無 upstream', () => {
