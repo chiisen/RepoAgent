@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '../src/app.js';
+import { createApp, indexHtmlCandidates, NEED_BUILD_HTML } from '../src/app.js';
 import { getScanProgress } from '../src/scanner.js';
 
 let server: Server;
@@ -24,7 +24,14 @@ afterAll(
 );
 
 describe('HTTP 煙霧', () => {
-  it('GET / 回 200 HTML（dist 優先，否則 fallback）', async () => {
+  it('正式 UI 只認 dist，無 dist 的頁面不是 Express 404', () => {
+    const paths = indexHtmlCandidates('/web', '/repo');
+    expect(paths.every((p) => !p.includes('public'))).toBe(true);
+    expect(NEED_BUILD_HTML).toMatch(/RepoAgent/);
+    expect(NEED_BUILD_HTML).toMatch(/npm run build/);
+  });
+
+  it('GET / 回 200 HTML', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type') ?? '').toMatch(/html/i);

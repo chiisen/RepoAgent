@@ -9,7 +9,10 @@
     "dev": "concurrently -k -n server,web -c cyan,magenta \"npm run start -w @repoagent/server\" \"npm run dev -w @repoagent/web\"",
     "build": "npm run build -w @repoagent/web",
     "start": "npm run start -w @repoagent/server",
-    "test": "npm test -w @repoagent/server && npm test -w @repoagent/web"
+    "test": "npm test -w @repoagent/server && npm test -w @repoagent/web",
+    "typecheck": "npm run typecheck -w @repoagent/server && npm run typecheck -w @repoagent/web",
+    "check": "npm run check -w @repoagent/server",
+    "verify": "npm run typecheck && npm run check && npm test && npm run build"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

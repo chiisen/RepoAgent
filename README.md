@@ -9,7 +9,7 @@
 - 後端：`docs/superpowers/specs/2026-09-15-repoagent-design.md`
 - 前端：`docs/superpowers/specs/2026-09-17-web-frontend-design.md`
 - 技術：Node 22+、Express、`node:sqlite`、單一 port（預設 3000）
-- UI：有 `apps/web/dist/index.html` 時送 Vite React；否則 `apps/web/public` fallback。`GET /` 不會落到 Express 預設 404。
+- UI：有 `apps/web/dist/index.html` 時送 Vite React；否則 `GET /` 顯示請先 build，不會落到 Express 預設 404。
 
 ## 文件導覽
 
@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-開發用 Vite：`http://localhost:5173`（`/api` 與 WebSocket 連後端 3000）。
+開發用 Vite：`http://localhost:5173`（`/api` 與 `/ws` 由 Vite 轉到後端 3000，瀏覽器不直連該埠）。
 
 單 port（正式 UI 由 Express 送 `dist`）：
 
@@ -41,7 +41,7 @@ npm run build
 npm start
 ```
 
-開 `http://localhost:3000`。`dist/` 不納版控；未 build 時仍可用 `public` fallback。不要在根目錄直接跑 `tsx src/index.ts`。
+開 `http://localhost:3000`。`dist/` 不納版控；未 build 時頁面會提示先執行 `npm run build`。不要在根目錄直接跑 `tsx src/index.ts`。
 
 ---
 
@@ -107,7 +107,7 @@ Playwright 忽略 Chrome 擴充功能（`content_main.js`）的 console。本頁
 
 ## 已知限制
 
-- 未執行 `apps/web` 建置時走 fallback，功能對等但無獨立設定抽屜（fallback 頂部只改 rootDir）。
+- 未執行 `apps/web` 建置時，頁面只提示先 `npm run build`，沒有第二套儀表板。
 - 預設僅掃描下一層（可選遞迴）；pi 預設最多 2 個同時跑。
 - 不內建安裝 `pi`。
 
@@ -118,7 +118,7 @@ Playwright 忽略 Chrome 擴充功能（`content_main.js`）的 console。本頁
 ```
 .
 ├─ apps/server/     # Express + WS（port 3000）
-├─ apps/web/        # Vite React（src／static）；public 為 fallback；dist 建置產物
+├─ apps/web/        # Vite React（src／static）；dist 為建置產物
 ├─ data/            # config.json、*.db 不納版控
 ├─ docs/
 │  ├─ refactor/     # 重構紀錄

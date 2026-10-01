@@ -122,14 +122,13 @@ describe('API e2e：scan → optimize → rescan（issue #7）', () => {
     child.stdout.emit('data', Buffer.from('pi ok\n'));
     child.emit('exit', 0);
 
-    let diff: {
-      before: { isDirty: number; dirtyCount: number; lastCommitHash: string; branch: string };
-      after: { isDirty: number; dirtyCount: number; lastCommitHash: string; branch: string };
-    } | null = null;
+    type RepoSnap = { isDirty: number; dirtyCount: number; lastCommitHash: string; branch: string };
+    type JobDiffSnap = { before: RepoSnap; after: RepoSnap };
+    let diff: JobDiffSnap | null = null;
     for (let i = 0; i < 100 && !diff; i++) {
       const g = await api(`/api/jobs/${job.id}`);
       expect(g.status).toBe(200);
-      const j = g.body.job as { status: string; diff: typeof diff };
+      const j = g.body.job as { status: string; diff: JobDiffSnap | null };
       if (j.status === 'done' && j.diff) diff = j.diff;
       else await new Promise((r) => setTimeout(r, 50));
     }

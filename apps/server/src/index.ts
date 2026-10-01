@@ -24,7 +24,7 @@ const server = app.listen(PORT, () => {
   console.log(`RepoAgent server listening on http://localhost:${PORT}`);
   console.log(`DB: ${dbPath}`);
   console.log(
-    indexHtml ? `UI: ${indexHtml}` : 'UI: no index.html (GET / will 404 until web/public or web/dist exists)',
+    indexHtml ? `UI: ${indexHtml}` : 'UI: dist 不存在，GET / 顯示請先 build',
   );
 });
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
+import { draftFromConfig, settingsPatch, type SettingsDraft } from '../configPatch';
 import { diffHtml, jobCls } from '../format';
 import type { Config, JobDetail, RepoDetail } from '../types';
 
@@ -183,6 +184,7 @@ function SettingsBody({
   onExtras?: (v: boolean) => void;
 }) {
   const [cfg, setCfg] = useState<Config | null>(null);
+  const [baseline, setBaseline] = useState<SettingsDraft | null>(null);
   const [rootDir, setRootDir] = useState('');
   const [piPath, setPiPath] = useState('');
   const [promptTemplate, setPromptTemplate] = useState('');
@@ -198,44 +200,47 @@ function SettingsBody({
   useEffect(() => {
     api<Config>('/api/config')
       .then((c) => {
+        const next = draftFromConfig(c);
         setCfg(c);
-        setRootDir(c.rootDir || '');
-        setPiPath(c.piPath || 'pi');
-        setPromptTemplate(c.promptTemplate || '');
-        const tpls = c.promptTemplates?.length
-          ? c.promptTemplates
-          : [{ id: 'default', name: '預設', body: c.promptTemplate || '' }];
-        setTemplates(tpls);
-        setActivePromptId(c.activePromptId || tpls[0].id);
-        setTimeoutSec(String(c.timeout ?? 600));
-        setPiConcurrency(String(c.piConcurrency ?? 2));
-        setScanRecursive(c.scanRecursive === true);
-        setScanDepth(String(c.scanDepth ?? 3));
-        setSkipDirsText((c.skipDirs ?? ['node_modules', '.superpowers']).join('\n'));
-        setExtrasEnabled(c.extrasEnabled === true);
+        setBaseline(next);
+        setRootDir(next.rootDir);
+        setPiPath(next.piPath);
+        setPromptTemplate(next.promptTemplate);
+        setTemplates(next.templates);
+        setActivePromptId(next.activePromptId);
+        setTimeoutSec(next.timeout);
+        setPiConcurrency(next.piConcurrency);
+        setScanRecursive(next.scanRecursive);
+        setScanDepth(next.scanDepth);
+        setSkipDirsText(next.skipDirsText);
+        setExtrasEnabled(next.extrasEnabled);
       })
       .catch((e) => toast(String(e.message || e)));
   }, [toast]);
 
   const save = async () => {
+    if (!baseline) return;
     try {
+      const next = {
+        rootDir,
+        piPath,
+        promptTemplate,
+        templates,
+        activePromptId,
+        timeout,
+        piConcurrency,
+        scanRecursive,
+        scanDepth,
+        skipDirsText,
+        extrasEnabled,
+      };
+      const patch = settingsPatch(baseline, next);
       await api('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rootDir,
-          piPath,
-          promptTemplate,
-          promptTemplates: templates,
-          activePromptId,
-          timeout: Number(timeout),
-          piConcurrency: Number(piConcurrency),
-          scanRecursive,
-          scanDepth: Number(scanDepth),
-          skipDirs: skipDirsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
-          extrasEnabled,
-        }),
+        body: JSON.stringify(patch),
       });
+      setBaseline(next);
       onExtras?.(extrasEnabled);
       toast(extrasEnabled ? '設定已儲存；進階欄位請再按掃描' : '設定已儲存');
     } catch (e) {

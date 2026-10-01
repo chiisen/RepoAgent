@@ -4,7 +4,7 @@ test('設定抽屜開啟→儲存→toast', async ({ page }) => {
   const res = await page.goto('/');
   expect(res?.ok()).toBeTruthy();
   const settings = page.locator('#btnSettings');
-  test.skip(!(await settings.count()), 'fallback 無設定鈕，略過（無 dist）');
+  await expect(settings).toHaveCount(1);
   await settings.click();
   await expect(page.locator('#drawer')).toHaveClass(/open/);
   await expect(page.locator('#cfgRootDir')).toBeVisible();

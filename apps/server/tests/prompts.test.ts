@@ -26,7 +26,7 @@ describe('ensurePromptTemplates（issue #11）', () => {
       promptTemplates: undefined,
       activePromptId: undefined,
       promptTemplate: 'hello {repoPath}',
-    } as typeof defaults & { promptTemplates?: unknown; activePromptId?: string };
+    } as unknown as typeof defaults;
     ensurePromptTemplates(c);
     expect(c.promptTemplates).toHaveLength(1);
     expect(c.promptTemplates[0].body).toBe('hello {repoPath}');

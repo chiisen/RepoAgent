@@ -9,6 +9,6 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src"],
-  "exclude": ["tests", "e2e", "dist", "node_modules"]
+  "include": ["src", "tests", "e2e"],
+  "exclude": ["dist", "node_modules"]
 }

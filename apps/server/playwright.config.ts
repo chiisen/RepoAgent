@@ -1,6 +1,6 @@
-import { defineConfig } from '@playwright/test';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { defineConfig } from '@playwright/test';
 
 const port = process.env.E2E_PORT || '34568';
 const e2eDb = process.env.REPOAGENT_DB || join(tmpdir(), 'repoagent-e2e.db');
@@ -13,10 +13,10 @@ export default defineConfig({
     browserName: 'chromium',
   },
   webServer: {
-    command: 'npx tsx src/index.ts',
+    command: 'npm run build -w @repoagent/web && npx tsx src/index.ts',
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: false,
     env: { ...process.env, PORT: port, REPOAGENT_DB: e2eDb },
-    timeout: 30_000,
+    timeout: 120_000,
   },
 });

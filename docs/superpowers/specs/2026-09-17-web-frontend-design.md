@@ -4,7 +4,7 @@
 - 狀態：已確認（依此實作 issue #6）
 - 對應 issue：#6（前端儀表板）
 - 前置規格：`docs/superpowers/specs/2026-09-15-repoagent-design.md`（後端 API／WS／資料模型沿用，不更動）
-- 範圍決議：與現有 `apps/web/public` fallback **功能對等**重寫＋補設定頁；fallback 保留作降級；設定頁用抽屜（無路由）。
+- 範圍決議（2026-10-01 更新，issue #24）：React 為唯一 UI。`apps/web/public` fallback 已退役，`favicon.svg` 只留 `apps/web/static/`。無 `dist` 時 `GET /` 回「請先 build」頁。設定頁用抽屜（無路由）。
 
 ## 1. 背景與目標
 
@@ -13,7 +13,7 @@
 目標：
 1. React 重寫 fallback 全部功能（掃描、搜尋／篩選／排序、卡片牆、詳情抽屜、pull、優化即時監控）。
 2. 新增設定抽屜（讀寫 `GET/PUT /api/config` 四欄位）。
-3. `vite build` 產出 `dist` 後，後端**一行不改**即送新 UI；無 `dist` 時仍回 fallback。
+3. `vite build` 產出 `dist` 後，後端送該 UI；無 `dist` 時回「請先 build」頁，不再維持第二套 fallback UI。
 
 非目標（明確不做）：
 - 黑名單可編輯：config API 無此欄位，維持 server 常數 `SKIP_DIRS`，不新增端點。

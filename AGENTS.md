@@ -8,7 +8,7 @@
 
 - 規格：`docs/superpowers/specs/2026-09-15-repoagent-design.md`
 - 技術：Node 22+、Express、`node:sqlite`、單一 port（預設 3000）
-- 佈局：`apps/server` 後端；有 `apps/web/dist/index.html` 時優先送 Vite React，否則 `apps/web/public` fallback
+- 佈局：`apps/server` 後端；有 `apps/web/dist/index.html` 時送 Vite React，否則回「請先 build」頁
 
 ## 啟動（專案根目錄）
 
@@ -17,14 +17,14 @@ npm install
 npm run dev
 ```
 
-開發：瀏覽器開 `http://localhost:5173`（Vite；`/api` 與 WS 連 3000）。單 port：`npm run build` 後 `npm start`，開 `http://localhost:3000`。不要在根目錄直接跑 `tsx src/index.ts`。
+開發：瀏覽器開 `http://localhost:5173`（Vite；`/api` 與 `/ws` 由 Vite 轉到後端 3000）。單 port：`npm run build` 後 `npm start`，開 `http://localhost:3000`。不要在根目錄直接跑 `tsx src/index.ts`。
 
 ## 實作約束
 
 - 掃描只用 `git status --porcelain`，禁止完整 `git.status()` 掃盡未追蹤檔。
 - 單 repo git 硬逾時 12 秒；並行上限 6；`GIT_TERMINAL_PROMPT=0`。
 - 換 `rootDir` 再掃必須**覆蓋** `repos`（刪掉不在本輪的舊列）。
-- 無 `apps/web/dist/index.html` 時送 `apps/web/public`，`GET /` 不得落到 Express 預設 404。
+- 無 `apps/web/dist/index.html` 時 `GET /` 回「請先 build」HTML，不得落到 Express 預設 404。
 - `data/config.json`、`data/*.db*` 不納版控。
 - 路徑用 `path.resolve`／spawn args 陣列，支援 Windows 中文與空白路徑。
 - 卡片「更新」僅 `git pull --ff-only`：dirty 跳過、無 upstream 失敗、25 秒逾時；不要做全部 pull 或自動 stash/merge。

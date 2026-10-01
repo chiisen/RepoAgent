@@ -33,7 +33,7 @@ V1 目標：
 - `npm run dev` 同起前後端，`npm run build` 把 web 打包進 `server/public`，正式只跑一個 port（預設 3000）。
 - 前端只讀 DB，不直接跑 git。掃描與優化皆由後端執行，經 WS 推播進度。
 - SQLite 單檔存放於 `data/repoagent.db`，job log 存檔於 `data/jobs/{jobId}.log`。
-- 正式環境優先送 `apps/web/dist`；若尚未 `npm run build`（沒有 `dist/index.html`），後端必須改送 `apps/web/public` fallback 頁，`GET /` 不得落到 Express 預設 404。
+- 正式環境送 `apps/web/dist`。尚未 `npm run build` 時 `GET /` 回「請先 build」頁，不得落到 Express 預設 404。
 
 ### 後端模組邊界
 

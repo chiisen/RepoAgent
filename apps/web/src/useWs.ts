@@ -12,6 +12,12 @@ export type WsMsg = {
   repo?: Repo;
 };
 
+/** 開發與正式都連目前頁面的 /ws；Vite 把該路徑轉到後端。 */
+export function wsUrl(loc: { protocol: string; host: string }): string {
+  const proto = loc.protocol === 'https:' ? 'wss' : 'ws';
+  return `${proto}://${loc.host}/ws`;
+}
+
 export function useWs(onMsg: (m: WsMsg) => void) {
   const [open, setOpen] = useState(false);
   const wanted = useRef(true);
@@ -33,10 +39,8 @@ export function useWs(onMsg: (m: WsMsg) => void) {
 
     const connect = () => {
       if (!wanted.current) return;
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       try {
-        const host = import.meta.env.DEV ? location.hostname + ':3000' : location.host;
-        ws = new WebSocket(proto + '://' + host);
+        ws = new WebSocket(wsUrl(location));
       } catch {
         schedule();
         return;

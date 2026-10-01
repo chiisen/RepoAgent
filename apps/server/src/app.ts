@@ -22,15 +22,24 @@ import { createScanRouter } from './routes/_internal/scan.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export function findIndexHtml(): string | undefined {
-  const candidates = [
-    join(__dirname, '..', '..', 'web', 'dist', 'index.html'),
-    join(__dirname, '..', '..', 'web', 'public', 'index.html'),
-    join(process.cwd(), 'apps', 'web', 'dist', 'index.html'),
-    join(process.cwd(), 'apps', 'web', 'public', 'index.html'),
-    join(process.cwd(), '..', 'web', 'public', 'index.html'),
+/** 無 dist 時的頁面。不是 Express 預設 404。 */
+export const NEED_BUILD_HTML = `<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="utf-8"><title>RepoAgent</title></head>
+<body><p>RepoAgent 尚未建置前端。請在專案根目錄執行 <code>npm run build</code> 後重新啟動。</p></body>
+</html>
+`;
+
+export function indexHtmlCandidates(compiledWebDir: string, cwd: string): string[] {
+  return [
+    join(compiledWebDir, 'dist', 'index.html'),
+    join(cwd, 'apps', 'web', 'dist', 'index.html'),
+    join(cwd, 'web', 'dist', 'index.html'),
   ];
-  return candidates.find((p) => existsSync(p));
+}
+
+export function findIndexHtml(): string | undefined {
+  return indexHtmlCandidates(join(__dirname, '..', '..', 'web'), process.cwd()).find((p) => existsSync(p));
 }
 
 export function createApp(container: Container = sharedContainer()): Express {
@@ -54,6 +63,9 @@ export function createApp(container: Container = sharedContainer()): Express {
     });
     app.use(express.static(webDir));
     app.get('/', (_req, res) => res.sendFile(indexHtml));
+  } else {
+    app.get('/favicon.ico', (_req, res) => res.status(204).end());
+    app.get('/', (_req, res) => res.type('html').send(NEED_BUILD_HTML));
   }
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));

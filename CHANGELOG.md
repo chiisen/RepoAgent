@@ -7,12 +7,16 @@
 
 ### 新增
 
+- 根目錄 `npm run typecheck`、`npm run check`、`npm run verify`（typecheck、Biome、測試、web build）（issue #25）。
+- GitHub Actions：`check` 跑 lint、型別、單元測試與 web build；`e2e` 另跑 Playwright（issue #26）。
 - 架構重構為 Clean Architecture 三層 + DI：後端 src/ 拆分為 `domain/`（純型別與介面）、`application/`（業務服務）、`infrastructure/`（SQLite / Git / FS / Process / WS adapters）、`composition/container.ts`（唯一允許 `new` 具體實例的組裝根）、`routes/_internal/`（Controller，建構子注入 service）、`_shims/`（向後相容舊 import）。所有 service 與 controller 透過建構子注入介面（`IRepRepository`、`IGitInspector`、`IPullExecutor`、`IRepoLister`、`IEventBroadcaster`、`IProcessRunner` 等），無硬編碼的 `new` 具體實例。
 - Lint / Formatter 工具：採用 Biome（`@biomejs/biome` 2.5+），新增 `biome.json` 與 `npm run lint`／`npm run format`／`npm run check` 指令，範圍依 `biome.json` 的 `files.includes` 涵蓋 `src`／`tests`／`e2e`，全部零錯誤、零警告；並修正 `biome.json` 已棄用的 `recommended` 為 `preset`、忽略樣式改為 `!dist` 形式。
 - 重構文件：新增 `docs/refactor/2026-09-25-backend-clean-architecture.md`（紀錄 PR #18 的動機、目標架構、關鍵決定、重構中抓到的兩個回歸與根因、驗證數字、已知取捨與衍生 issue）與根目錄 `REFACTOR-GUIDE.md`（可直接複製到其他專案的分層重構指引：流程、自我 Review 檢查表、驗收標準與反模式速查）；`README.md` 新增「文件導覽」表格並更新專案結構樹。
 
 ### 變更
 
+- React 為唯一介面。移除 `apps/web/public` fallback 與重複的 favicon；沒有 `dist` 時 `GET /` 顯示請先 build（issue #24）。
+- e2e 啟動前先 build web，並拿掉設定案例在沒有 `dist` 時的靜默 skip（issue #20）。
 - 舊 `src/{db,scanner,config,extras,pull,optimizer,piHeartbeat,routes/*}.ts` 改為 thin re-export shim（標 `@deprecated`），內部委派給 composition root；93 個測試（17 檔）零行為修改全綠。
 - 測試檔整理以符合 lint／format：修正 import 排序、移除未使用的 `JobStatus` import、`'i' + i` 改樣板字串，並將 3 處 `??=` 塞在表達式內（`noAssignInExpressions`）改為獨立語句；`e2e/` 三檔亦僅做 import 排序與格式化。語意與斷言皆不變。
 - WS 事件型別集中於 `domain/events.ts`（`WS_EVENT.JOB_LOG`／`JOB_DONE`／`SCAN_DONE`／`SCAN_REPO`）取代散落的字串常數。
@@ -21,6 +25,10 @@
 
 ### 修正
 
+- 移除伺服器未使用的 `uuid` 依賴（issue #23）。
+- 開發模式的 WebSocket 改連目前頁面的 `/ws`，由 Vite 轉到後端，不再把埠寫死成 3000（issue #22）。
+- 設定抽屜只送出有變更的欄位；未改過的 `rootDir` 不會再讓其他設定一併存檔失敗（issue #21）。
+- `npm run typecheck` 重新涵蓋 `tests` 與 `e2e`，並修正兩處既有測試型別錯誤（issue #19）。
 - 未設定 `REPOAGENT_DB` 時啟動改開啟倉庫根 `data/repoagent.db`（不再落到 `:memory:`）；預設資料庫與 `config.json` 都改放倉庫根 `data/`（issue #29、#30）。
 - 掃描進行中若再收到掃描要求回 HTTP 409，且根路徑不是目錄時在清掉 `repos` 之前失敗，避免重疊掃描互刪列（issue #31）。
 - pi 逾時後行程再退出不會把 job 改成完成或再推一次 `job:done`；設定裡的 `piPath` 會在未設 `PI_PATH` 時用來啟動 pi；掃描串流對同一個 repo id 不再重複累加專案數（issue #32）。
