@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
-import { lastScanRootDir, markCommitStatsBackfilled, needsCommitStatsBackfill, openDb } from '../src/db.js';
+import {
+  lastScanRootDir,
+  markCommitStatsBackfilled,
+  needsCommitStatsBackfill,
+} from '../src/infrastructure/sqlite/connection.js';
+import { openDb } from './support.js';
 
 describe('db schema', () => {
   it('creates repos, scans, jobs tables', () => {

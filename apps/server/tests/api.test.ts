@@ -4,10 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openDb } from '../src/db.js';
-import { createReposRouter } from '../src/routes/repos.js';
-import { createScanRouter } from '../src/routes/scan.js';
-import { scanRoot } from '../src/scanner.js';
+import { openDb, reposRouter, scanRoot, scanRouter } from './support.js';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
@@ -33,8 +30,8 @@ beforeAll(async () => {
 
   const app = express();
   app.use(express.json());
-  app.use('/api', createReposRouter(db));
-  app.use('/api', createScanRouter(db));
+  app.use('/api', reposRouter(db));
+  app.use('/api', scanRouter(db));
   server = app.listen(0);
   await new Promise<void>((resolve) => server.on('listening', () => resolve()));
   port = (server.address() as { port: number }).port;

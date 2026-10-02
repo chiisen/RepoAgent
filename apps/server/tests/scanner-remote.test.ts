@@ -3,8 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openDb } from '../src/db.js';
-import { scanRoot } from '../src/scanner.js';
+import { openDb, scanRoot } from './support.js';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });

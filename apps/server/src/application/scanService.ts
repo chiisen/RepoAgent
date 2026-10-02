@@ -2,9 +2,10 @@
  * ScanService — 掃描 orchestration（純業務；依賴注入）。
  */
 import { existsSync, statSync } from 'node:fs';
-import { basename, parse, resolve } from 'node:path';
+import { basename } from 'node:path';
 
 import { RootDirNotFoundError, ScanInProgressError } from '../domain/errors.js';
+import { normalizeRootDir } from '../domain/paths.js';
 import { WS_EVENT } from '../domain/events.js';
 import type {
   IConfigRepository,
@@ -37,7 +38,7 @@ export class ScanService {
 
   async scanRoot(rawRoot: string, onRepo?: RepoCallback): Promise<ScanSummary> {
     if (this.scanInFlight) throw new ScanInProgressError();
-    const root = this.normalizeRootDir(rawRoot);
+    const root = normalizeRootDir(rawRoot);
     if (!existsSync(root)) throw new RootDirNotFoundError(root);
     if (!statSync(root).isDirectory()) throw new RootDirNotFoundError(root);
 
@@ -166,15 +167,6 @@ export class ScanService {
 
   private broadcastScanRepo(repo: Repo): void {
     this.broadcaster.broadcast({ type: WS_EVENT.SCAN_REPO, repo });
-  }
-
-  private normalizeRootDir(input: string): string {
-    const trimmed = input.trim();
-    if (!trimmed) return trimmed;
-    const resolved = resolve(trimmed);
-    const { root } = parse(resolved);
-    if (resolved === root) return resolved;
-    return resolved.replace(/[\\/]+$/, '');
   }
 }
 

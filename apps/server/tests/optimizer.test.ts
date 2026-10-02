@@ -13,11 +13,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sharedContainer } from '../src/composition/_sharedContainer.js';
-import { configStore } from '../src/config.js';
-import { openDb } from '../src/db.js';
+import { MAX_JOB_LOGS } from '../src/infrastructure/fs/fileLogStore.js';
 import {
   cancelJob,
   childMap,
+  configStore,
   createJob,
   getActiveJob,
   getJobStatus,
@@ -29,10 +29,10 @@ import {
   jobMap,
   KILL_GRACE_MS,
   listActiveJobs,
-  MAX_JOB_LOGS,
+  openDb,
   pruneJobLogs,
   startJob,
-} from '../src/optimizer.js';
+} from './support.js';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),

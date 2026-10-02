@@ -37,11 +37,13 @@ V1 目標：
 
 ### 後端模組邊界
 
-- `configStore`：rootDir、pi 指令樣板、pi 絕對路徑、port、timeout。
-- `scanner`：列目錄 → 判斷 `.git` → 跑 git 指令取精簡欄位 → 寫 DB。
-- `optimizer`：job queue（V1 單併發，一次只跑一個 pi）、spawn、串流 log、逾時與取消、完成後重掃。
-- `db`：三表 `repos / scans / jobs`。
-- `api + ws`：REST + WebSocket 推播 `scan:done`、`job:log`、`job:done`。
+實作在 `domain/`、`application/`、`infrastructure/`、`composition/`、`routes/_internal/`。沒有第二套 `src/{config,db,scanner,optimizer}.ts` 入口。
+
+- 設定：rootDir、pi 指令樣板、pi 絕對路徑、timeout。
+- 掃描：列目錄 → 判斷 `.git` → 跑 git 指令取精簡欄位 → 寫 DB。
+- 優化：job queue、spawn、串流 log、逾時與取消、完成後重掃。
+- 資料：SQLite 表 `repos / scans`，job log 在檔案。
+- API 與 WebSocket：REST，並推播 `scan:done`、`job:log`、`job:done`。
 
 ## 3. 功能設計
 

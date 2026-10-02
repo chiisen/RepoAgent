@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { collectExtras, EXTRAS_TIMEOUT_MS } from '../src/extras.js';
+import { collectExtras, EXTRAS_TIMEOUT_MS } from '../src/infrastructure/fs/extrasCollector.js';
 
 describe('collectExtras', () => {
   it('依副檔名與 tsconfig 判斷 TypeScript，並加總大小', () => {

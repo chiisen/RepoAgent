@@ -304,7 +304,7 @@ npx playwright test
 
 ### 重構本身的已知取捨
 
-- **`_shims/` 相容層仍在**：為了讓 17 檔既有測試不改就全綠而保留。它是**技術債，不是設計**；拆除計畫見 [#27](https://github.com/chiisen/RepoAgent/issues/27)。在那之前，「新程式該 import 哪裡」有兩個答案。
+- **`_shims/` 已於 issue #27 移除**。新程式只從 `domain/`、`application/`、`infrastructure/`、`composition/`、`routes/_internal/` 進入。
 - **`tsconfig.json` 的 `include` 縮為 `["src"]`**：刻意縮減，代價是測試檔不再受 `tsc` 檢查，由 vitest 執行期把關；還原見 [#19](https://github.com/chiisen/RepoAgent/issues/19)。
 - **`ConfigStore` 內 `promptTemplates`／`skipDirs` 仍為淺層共享**：`snapshot()` 已改回傳複本，但巢狀陣列／物件仍是同參考。已知且現階段可接受。
 - **WS 事件責任收回 service 是本次的架構決定**：`scanRoot()` 一律推播，呼叫端無法再「選擇不推播」。若未來需要靜默掃描（例如背景回填），應以明確參數（`{ silent: true }`）表達，而不是回到「有沒有傳 callback」的隱性條件。

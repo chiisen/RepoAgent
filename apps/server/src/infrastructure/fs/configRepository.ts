@@ -10,6 +10,7 @@ import {
   parsePromptTemplates,
   parseSkipDirs,
 } from '../../domain/config.js';
+import { normalizeRootDir } from '../../domain/paths.js';
 import { repoDataDir } from '../../dataDir.js';
 import { RootDirNotFoundError } from '../../domain/errors.js';
 import type { IConfigRepository } from '../../domain/ports.js';
@@ -88,7 +89,7 @@ export class FileConfigRepository implements IConfigRepository {
   }
 
   setRootDir(raw: string): string {
-    const normalized = this.normalizeRootDir(raw);
+    const normalized = normalizeRootDir(raw);
     if (!normalized || !fs.existsSync(normalized)) {
       throw new RootDirNotFoundError(raw);
     }
@@ -146,12 +147,4 @@ export class FileConfigRepository implements IConfigRepository {
     this.config.extrasEnabled = Boolean(raw);
   }
 
-  private normalizeRootDir(input: string): string {
-    const trimmed = input.trim();
-    if (!trimmed) return trimmed;
-    const resolved = path.resolve(trimmed);
-    const { root } = path.parse(resolved);
-    if (resolved === root) return resolved;
-    return resolved.replace(/[\\/]+$/, '');
-  }
 }

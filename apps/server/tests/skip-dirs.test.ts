@@ -3,9 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { configStore, parseSkipDirs } from '../src/config.js';
-import { openDb } from '../src/db.js';
-import { scanRoot } from '../src/scanner.js';
+import { parseSkipDirs } from '../src/domain/config.js';
+import { configStore, openDb, scanRoot } from './support.js';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });

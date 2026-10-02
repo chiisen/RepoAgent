@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getPiHeartbeat, parseSessionStart } from '../src/piHeartbeat.js';
+import { parseSessionStart } from '../src/infrastructure/fs/piSessionHeartbeatProbe.js';
+import { getPiHeartbeat } from './support.js';
 
 const dirs: string[] = [];
 afterEach(() => {

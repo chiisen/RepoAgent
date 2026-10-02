@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, indexHtmlCandidates, NEED_BUILD_HTML } from '../src/app.js';
-import { getScanProgress } from '../src/scanner.js';
+import { getScanProgress } from './support.js';
 
 let server: Server;
 let port = 0;

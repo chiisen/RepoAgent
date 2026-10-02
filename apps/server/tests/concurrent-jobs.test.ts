@@ -5,12 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import express from 'express';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { configStore } from '../src/config.js';
-import { openDb } from '../src/db.js';
-import { initOptimizer } from '../src/optimizer.js';
-import { createJobsRouter } from '../src/routes/jobs.js';
-import { createReposRouter } from '../src/routes/repos.js';
-import { scanRoot } from '../src/scanner.js';
+import { configStore, initOptimizer, jobsRouter, openDb, reposRouter, scanRoot } from './support.js';
 
 const PI_SENTINEL = '__test_pi__';
 
@@ -93,8 +88,8 @@ beforeAll(async () => {
   }
   const app = express();
   app.use(express.json());
-  app.use('/api', createReposRouter(db));
-  app.use('/api', createJobsRouter());
+  app.use('/api', reposRouter(db));
+  app.use('/api', jobsRouter(db));
   server = app.listen(0);
   await new Promise<void>((r) => server.on('listening', () => r()));
   port = (server.address() as { port: number }).port;

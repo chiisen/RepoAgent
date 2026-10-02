@@ -5,8 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, createAppWithDb } from '../src/app.js';
-import { openDb } from '../src/db.js';
-import { initOptimizer } from '../src/optimizer.js';
+import { initOptimizer, openDb } from './support.js';
 
 const PI_SENTINEL = '__test_pi__';
 

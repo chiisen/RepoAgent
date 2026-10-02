@@ -1,5 +1,5 @@
 /**
- * 跨模組共用的 singleton container（composition、app 與 _shims 都引用此）。
+ * 跨模組共用的 singleton container（composition 與 app 引用此）。
  * 讓測試 mutate configStore 與生產 service 共用同一個 configRepo。
  */
 import type { Container } from './container.js';

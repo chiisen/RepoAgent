@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { configStore } from '../src/config.js';
-import { openDb } from '../src/db.js';
-import { scanRoot, windowStart } from '../src/scanner.js';
+import { normalizeRootDir } from '../src/domain/paths.js';
+import { windowStartIso as windowStart } from '../src/domain/text.js';
+import { configStore, openDb, scanRoot } from './support.js';
 
 function git(cwd: string, ...args: string[]) {
   execFileSync('git', [...args], { cwd, stdio: 'pipe' });
@@ -40,7 +40,6 @@ afterEach(() => {
 
 describe('normalizeRootDir', () => {
   it('strips trailing separators but keeps drive root', async () => {
-    const { normalizeRootDir } = await import('../src/config.js');
     if (process.platform === 'win32') {
       expect(normalizeRootDir('D:\\github\\')).toBe('D:\\github');
       expect(normalizeRootDir('D:\\github/')).toBe('D:\\github');

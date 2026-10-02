@@ -15,6 +15,7 @@
 
 ### 變更
 
+- 移除 `@deprecated` shim 層（`src/_shims/`、舊路徑轉發檔、`routes` 舊入口）。測試改接 `composition`、`domain`、`application`、`infrastructure` 與 `routes/_internal`（issue #27）。
 - React 為唯一介面。移除 `apps/web/public` fallback 與重複的 favicon；沒有 `dist` 時 `GET /` 顯示請先 build（issue #24）。
 - e2e 啟動前先 build web，並拿掉設定案例在沒有 `dist` 時的靜默 skip（issue #20）。
 - 舊 `src/{db,scanner,config,extras,pull,optimizer,piHeartbeat,routes/*}.ts` 改為 thin re-export shim（標 `@deprecated`），內部委派給 composition root；93 個測試（17 檔）零行為修改全綠。

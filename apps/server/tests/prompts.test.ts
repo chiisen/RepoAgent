@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { resolveOptimizePrompt } from '../src/application/promptResolver.js';
 import {
-  configStore,
-  defaults,
+  CONFIG_DEFAULTS as defaults,
   ensurePromptTemplates,
   parsePromptTemplates,
-  resolveOptimizePrompt,
-} from '../src/config.js';
+} from '../src/domain/config.js';
+import { configStore } from './support.js';
 
 const saved = {
   promptTemplate: configStore.promptTemplate,
@@ -65,21 +65,21 @@ describe('resolveOptimizePrompt', () => {
   });
 
   it('自訂 prompt 優先', () => {
-    const r = resolveOptimizePrompt('/r', 'main', { prompt: 'custom {branch}' });
+    const r = resolveOptimizePrompt(configStore, '/r', 'main', { prompt: 'custom {branch}' });
     expect(r.prompt).toBe('custom main');
     expect(r.promptId).toBe('custom');
   });
   it('promptId 選樣板', () => {
-    const r = resolveOptimizePrompt('/r', 'dev', { promptId: 'docs' });
+    const r = resolveOptimizePrompt(configStore, '/r', 'dev', { promptId: 'docs' });
     expect(r.prompt).toBe('docs dev');
     expect(r.promptId).toBe('docs');
   });
   it('未指定用 active', () => {
-    const r = resolveOptimizePrompt('/abs/path', 'main', {});
+    const r = resolveOptimizePrompt(configStore, '/abs/path', 'main', {});
     expect(r.prompt).toContain('/abs/path');
     expect(r.promptId).toBe('qa');
   });
   it('未知 promptId 丟錯', () => {
-    expect(() => resolveOptimizePrompt('/r', 'main', { promptId: 'nope' })).toThrow(/unknown promptId/);
+    expect(() => resolveOptimizePrompt(configStore, '/r', 'main', { promptId: 'nope' })).toThrow(/unknown promptId/);
   });
 });
