@@ -15,6 +15,7 @@
 
 ### 變更
 
+- `AI_PROJECT_INDEX.md` 將暫定價值評估名單移入 HTML 註解，保留給 AI 的對話脈絡，同時避免破壞「每個二級標題都是專案目錄」的機器掃描格式。
 - 移除 GitHub Actions（`.github/workflows/ci.yml`）。三份 agent 指引註明：AI 寫程式時已在本機跑測試，不要再加入 CI 重跑。
 - 移除 `@deprecated` shim 層（`src/_shims/`、舊路徑轉發檔、`routes` 舊入口）。測試改接 `composition`、`domain`、`application`、`infrastructure` 與 `routes/_internal`（issue #27）。
 - React 為唯一介面。移除 `apps/web/public` fallback 與重複的 favicon；沒有 `dist` 時 `GET /` 顯示請先 build（issue #24）。
