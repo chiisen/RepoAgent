@@ -7,6 +7,7 @@
 
 ### 新增
 
+- `AI_PROJECT_INDEX.md` 新增 2026-10-03 價值評估備註，記錄五個優先關注候選及 `SimpleLibrary`、`git-sync-multi` 暫不列入的使用者回饋；註明評估僅依用途描述，未驗證維護狀況與技術問題。
 - 根目錄 `npm run typecheck`、`npm run check`、`npm run verify`（typecheck、Biome、測試、web build）（issue #25）。
 - 架構重構為 Clean Architecture 三層 + DI：後端 src/ 拆分為 `domain/`（純型別與介面）、`application/`（業務服務）、`infrastructure/`（SQLite / Git / FS / Process / WS adapters）、`composition/container.ts`（唯一允許 `new` 具體實例的組裝根）、`routes/_internal/`（Controller，建構子注入 service）、`_shims/`（向後相容舊 import）。所有 service 與 controller 透過建構子注入介面（`IRepRepository`、`IGitInspector`、`IPullExecutor`、`IRepoLister`、`IEventBroadcaster`、`IProcessRunner` 等），無硬編碼的 `new` 具體實例。
 - Lint / Formatter 工具：採用 Biome（`@biomejs/biome` 2.5+），新增 `biome.json` 與 `npm run lint`／`npm run format`／`npm run check` 指令，範圍依 `biome.json` 的 `files.includes` 涵蓋 `src`／`tests`／`e2e`，全部零錯誤、零警告；並修正 `biome.json` 已棄用的 `recommended` 為 `preset`、忽略樣式改為 `!dist` 形式。

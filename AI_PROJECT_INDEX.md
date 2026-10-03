@@ -7,6 +7,14 @@ Nested paths, files in the collection root, and generated trees (`node_modules`,
 
 Record format: a level-2 heading is the directory name. Fields are `purpose`, `source`, `manifests`.
 
+## 價值評估備註（2026-10-03）
+
+依本索引的用途描述初選五個值得優先關注的專案：`AI_AGENT_GUIDELINES`、`RepoAgent`、`DocumentTemplateMaker.NET`、`CodeGraph`、`VibeCodingAiAgentCLI`。評估側重可重複使用性、實際問題效用與發展潛力；索引未提供程式品質、近期維護活躍度或實際使用狀況，因此這不是完整的投資或維護優先級評分。
+
+- `SimpleLibrary` 暫不列入：使用者表示很久沒有維護，且懷疑函式庫可能太舊而無法連線；此原因尚未經技術檢查確認。
+- `git-sync-multi` 暫不列入：使用者認為批次檔案處理過於客製化，不適合作為優先推薦專案。
+- `DocumentTemplateMaker.NET` 與 `CodeGraph` 是替代候選，根據索引用途描述納入，尚未檢視程式碼或維護狀況。
+
 ## 104
 
 - purpose: 🚀 使用 Hexo 打造專屬 104 個人履歷
