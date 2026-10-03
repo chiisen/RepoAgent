@@ -40,6 +40,10 @@ npx playwright test
 
 Playwright 忽略 Chrome 擴充功能（`content_main.js`）的 console。本頁錯誤看堆疊是否為 `(index)`。
 
+## CI
+
+- 不要加入 CI。現在是 AI 寫程式，變更當下就會在本機跑測試，不必再靠 CI 重跑同一套檢查。禁止新增或恢復 GitHub Actions、`.github/workflows`，以及其他自動化流水線（GitLab CI、CircleCI、Jenkins 等）。
+
 ## Git
 
 - Conventional Commits，主旨與內文 **繁體中文**。
